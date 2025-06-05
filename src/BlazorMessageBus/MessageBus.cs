@@ -8,6 +8,11 @@ internal class MessageBus : IBlazorMessageBus
 {
     private readonly ConcurrentDictionary<Type, Message> _messages = [];
 
+    /// <summary>
+    /// Raised when a subscription handler throws an exception during PublishAsync.
+    /// </summary>
+    public event Action<Exception>? OnPublishException;
+
     public async Task PublishAsync<T>(T payload) where T : notnull
     {
         if (payload == null) throw new ArgumentNullException(nameof(payload));
@@ -15,7 +20,17 @@ internal class MessageBus : IBlazorMessageBus
         var message = GetOrCreateMessage(typeof(T));
 
         var tasks = message.Subscriptions
-                           .Select(x => x.InvokeAsync(payload));
+                           .Select(async subscription =>
+                           {
+                               try
+                               {
+                                   await subscription.InvokeAsync(payload).ConfigureAwait(false);
+                               }
+                               catch (Exception e)
+                               {
+                                   OnPublishException?.Invoke(e);
+                               }
+                           });
 
         await Task.WhenAll(tasks);
     }
