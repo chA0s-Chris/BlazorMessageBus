@@ -17,6 +17,7 @@ public static class BlazorMessageBusServiceCollectionExtensions
     /// <returns>The updated service collection.</returns>
     public static IServiceCollection AddBlazorMessageBus(this IServiceCollection services, Action<BlazorMessageBusOptions>? configure = null)
     {
+        services.AddOptions<BlazorMessageBusOptions>();
         if (configure is not null)
         {
             services.Configure(configure);
