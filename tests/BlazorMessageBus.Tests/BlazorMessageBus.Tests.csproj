@@ -1,0 +1,5 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Cha0s.BlazorMessageBus</RootNamespace>
+  </PropertyGroup>
+</Project>

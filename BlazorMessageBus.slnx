@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/build/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="Version.props" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src\BlazorMessageBus\BlazorMessageBus.csproj" Type="Classic C#" />
+    <File Path="src\Directory.Build.props" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests\BlazorMessageBus.Tests\BlazorMessageBus.Tests.csproj" Type="Classic C#" />
+    <File Path="tests\Directory.Build.props" />
+  </Folder>
+</Solution>
