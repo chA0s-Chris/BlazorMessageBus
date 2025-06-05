@@ -39,7 +39,6 @@ internal class Subscription : IBlazorMessageSubscription
         }
     }
 
-
     public Task InvokeAsync(Object payload)
     {
         CheckIfDisposed();

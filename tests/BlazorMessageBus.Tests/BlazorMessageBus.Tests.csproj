@@ -2,4 +2,8 @@
   <PropertyGroup>
     <RootNamespace>Cha0s.BlazorMessageBus</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BlazorMessageBus\BlazorMessageBus.csproj" />
+  </ItemGroup>
+  <ItemGroup />
 </Project>
