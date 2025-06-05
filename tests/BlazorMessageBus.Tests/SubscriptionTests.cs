@@ -74,6 +74,16 @@ public class SubscriptionTests
     }
 
     [Test]
+    public async Task InvokeAsync_WithNullPayload_ShouldThrowArgumentNullException()
+    {
+        var messageCallback = new MessageCallback<String>(_ => { });
+        var subscription = new Subscription(messageCallback, () => { });
+
+        await FluentActions.Awaiting(() => subscription.InvokeAsync(null!))
+                           .Should().ThrowExactlyAsync<ArgumentNullException>();
+    }
+
+    [Test]
     public async Task InvokeAsync_ShouldInvokeCallbackWithPayload()
     {
         var payload = "Test Payload";
