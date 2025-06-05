@@ -7,9 +7,4 @@ public interface IBlazorMessageBus : IBlazorMessagePublisher
     IBlazorMessageSubscription Subscribe<T>(SubscriptionHandlerAsync<T> handler);
 
     IBlazorMessageSubscription Subscribe<T>(SubscriptionHandler<T> handler);
-
-    /// <summary>
-    /// Raised when a subscription handler throws an exception during PublishAsync.
-    /// </summary>
-    event Action<Exception>? OnPublishException;
 }

@@ -2,16 +2,20 @@
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
+using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 
 internal class MessageBus : IBlazorMessageBus
 {
     private readonly ConcurrentDictionary<Type, Message> _messages = [];
+    private readonly Func<Exception, Task>? _onPublishException;
+    private readonly BlazorMessageBusOptions _options;
 
-    /// <summary>
-    /// Raised when a subscription handler throws an exception during PublishAsync.
-    /// </summary>
-    public event Action<Exception>? OnPublishException;
+    public MessageBus(IOptions<BlazorMessageBusOptions>? options = null)
+    {
+        _options = options?.Value ?? new BlazorMessageBusOptions();
+        _onPublishException = _options.OnPublishException;
+    }
 
     public async Task PublishAsync<T>(T payload) where T : notnull
     {
@@ -19,20 +23,14 @@ internal class MessageBus : IBlazorMessageBus
 
         var message = GetOrCreateMessage(typeof(T));
 
-        var tasks = message.Subscriptions
-                           .Select(async subscription =>
-                           {
-                               try
-                               {
-                                   await subscription.InvokeAsync(payload).ConfigureAwait(false);
-                               }
-                               catch (Exception e)
-                               {
-                                   OnPublishException?.Invoke(e);
-                               }
-                           });
-
-        await Task.WhenAll(tasks);
+        if (_options.StopOnFirstError)
+        {
+            await InvokeSubscriptionsAndStopOnFirstErrorAsync(message.Subscriptions, payload).ConfigureAwait(false);
+        }
+        else
+        {
+            await InvokeSubscriptionsAsync(message.Subscriptions, payload).ConfigureAwait(false);
+        }
     }
 
     public IBlazorMessageSubscription Subscribe<T>(SubscriptionHandlerAsync<T> handler)
@@ -49,6 +47,42 @@ internal class MessageBus : IBlazorMessageBus
         return CreateSubscription<T>(new MessageCallback<T>(handler));
     }
 
+    private async Task InvokeSubscriptionsAndStopOnFirstErrorAsync<T>(Subscriptions subscriptions, T payload) where T : notnull
+    {
+        foreach (var subscription in subscriptions)
+        {
+            try
+            {
+                await subscription.InvokeAsync(payload);
+            }
+            catch (Exception exception)
+            {
+                _onPublishException?.Invoke(exception);
+                throw;
+            }
+        }
+    }
+
+    private Task InvokeSubscriptionsAsync<T>(Subscriptions subscriptions, T payload) where T : notnull
+    {
+        var tasks =
+            subscriptions.Select(subscription
+                                     => subscription
+                                        .InvokeAsync(payload)
+                                        .ContinueWith(task =>
+                                        {
+                                            if (!task.IsFaulted || _onPublishException is null || task.Exception is null)
+                                                return;
+
+                                            foreach (var innerException in task.Exception.Flatten().InnerExceptions)
+                                            {
+                                                _onPublishException.Invoke(innerException);
+                                            }
+                                        }));
+
+        return Task.WhenAll(tasks);
+    }
+
     private Subscription CreateSubscription<T>(MessageCallback callback)
     {
         var type = typeof(T);
@@ -56,6 +90,6 @@ internal class MessageBus : IBlazorMessageBus
         return message.Subscriptions.CreateSubscription(callback);
     }
 
-    internal Message GetOrCreateMessage(Type type)
+    private Message GetOrCreateMessage(Type type)
         => _messages.GetOrAdd(type, t => new(t));
 }

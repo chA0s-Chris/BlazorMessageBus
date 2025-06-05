@@ -6,11 +6,14 @@ internal class MessageExchange : IBlazorMessageExchange
 {
     private readonly IBlazorMessageBus _messageBus;
     private readonly List<IBlazorMessageSubscription> _subscriptions = [];
+    // Remove all event and handler registration logic
 
     public MessageExchange(IBlazorMessageBus messageBus)
     {
         _messageBus = messageBus;
     }
+
+    public Func<Task, Exception, Task>? OnPublishException { get; set; }
 
     public Task PublishAsync<T>(T payload) where T : notnull
         => _messageBus.PublishAsync<T>(payload);
@@ -33,7 +36,18 @@ internal class MessageExchange : IBlazorMessageExchange
         {
             subscription.Dispose();
         }
-
         _subscriptions.Clear();
+        // Remove all registered exception handlers
+    }
+
+    private sealed class EventHandlerRegistration
+    {
+        public Action<Exception> Original { get; }
+        public Action<Exception> Wrapped { get; }
+        public EventHandlerRegistration(Action<Exception> original, Action<Exception> wrapped)
+        {
+            Original = original;
+            Wrapped = wrapped;
+        }
     }
 }
