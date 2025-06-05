@@ -41,7 +41,8 @@ internal class Subscriptions : IEnumerable<Subscription>, IDisposable
         var subscription = new Subscription(callback, PurgeInactiveSubscriptions);
 
         ImmutableInterlocked.Update(ref _subscriptions,
-                                    x => x.Add(subscription));
+                                    (list, sub) => list.Add(sub), subscription);
+
         return subscription;
     }
 }
