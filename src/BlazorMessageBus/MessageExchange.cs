@@ -16,7 +16,7 @@ internal class MessageExchange : IBlazorMessageExchange
     }
 
     public Task PublishAsync<T>(T payload) where T : notnull
-        => _messageBus.PublishAsync<T>(payload);
+        => _messageBus.PublishAsync(payload);
 
     public void Subscribe<T>(SubscriptionHandlerAsync<T> handler)
     {

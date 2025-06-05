@@ -41,6 +41,8 @@ internal class Subscription : IBlazorMessageSubscription
 
     public Task InvokeAsync(Object payload)
     {
+        ArgumentNullException.ThrowIfNull(payload);
+
         CheckIfDisposed();
         return _callback.InvokeAsync(payload);
     }

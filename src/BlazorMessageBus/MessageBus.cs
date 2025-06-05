@@ -22,7 +22,7 @@ internal class MessageBus : IBlazorMessageBus
 
     public async Task PublishAsync<T>(T payload) where T : notnull
     {
-        if (payload == null) throw new ArgumentNullException(nameof(payload));
+        ArgumentNullException.ThrowIfNull(payload);
 
         var message = GetOrCreateMessage(typeof(T));
 
@@ -38,14 +38,14 @@ internal class MessageBus : IBlazorMessageBus
 
     public IBlazorMessageSubscription Subscribe<T>(SubscriptionHandlerAsync<T> handler)
     {
-        if (handler == null) throw new ArgumentNullException(nameof(handler));
+        ArgumentNullException.ThrowIfNull(handler);
 
         return CreateSubscription<T>(new MessageCallbackAsync<T>(handler));
     }
 
     public IBlazorMessageSubscription Subscribe<T>(SubscriptionHandler<T> handler)
     {
-        if (handler == null) throw new ArgumentNullException(nameof(handler));
+        ArgumentNullException.ThrowIfNull(handler);
 
         return CreateSubscription<T>(new MessageCallback<T>(handler));
     }

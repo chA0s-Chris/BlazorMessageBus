@@ -38,6 +38,8 @@ internal class Subscriptions : IEnumerable<Subscription>, IDisposable
 
     public Subscription CreateSubscription(MessageCallback callback)
     {
+        ArgumentNullException.ThrowIfNull(callback);
+
         var subscription = new Subscription(callback, PurgeInactiveSubscriptions);
 
         ImmutableInterlocked.Update(ref _subscriptions,
