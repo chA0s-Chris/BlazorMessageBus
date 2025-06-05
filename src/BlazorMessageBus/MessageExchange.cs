@@ -8,12 +8,13 @@ namespace Chaos.BlazorMessageBus;
 internal class MessageExchange : IBlazorMessageExchange
 {
     private readonly IBlazorMessageBus _messageBus;
-    private readonly List<IBlazorMessageSubscription> _subscriptions = [];
 
     public MessageExchange(IBlazorMessageBus messageBus)
     {
         _messageBus = messageBus;
     }
+
+    internal List<IBlazorMessageSubscription> Subscriptions { get; } = [];
 
     public Task PublishAsync<T>(T payload) where T : notnull
         => _messageBus.PublishAsync(payload);
@@ -21,22 +22,22 @@ internal class MessageExchange : IBlazorMessageExchange
     public void Subscribe<T>(SubscriptionHandlerAsync<T> handler)
     {
         var subscription = _messageBus.Subscribe(handler);
-        _subscriptions.Add(subscription);
+        Subscriptions.Add(subscription);
     }
 
     public void Subscribe<T>(SubscriptionHandler<T> handler)
     {
         var subscription = _messageBus.Subscribe(handler);
-        _subscriptions.Add(subscription);
+        Subscriptions.Add(subscription);
     }
 
     public void Dispose()
     {
-        foreach (var subscription in _subscriptions)
+        foreach (var subscription in Subscriptions)
         {
             subscription.Dispose();
         }
 
-        _subscriptions.Clear();
+        Subscriptions.Clear();
     }
 }
