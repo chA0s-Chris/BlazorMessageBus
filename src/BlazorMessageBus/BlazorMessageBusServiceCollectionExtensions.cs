@@ -3,8 +3,10 @@
 namespace Chaos.BlazorMessageBus;
 
 using Microsoft.Extensions.DependencyInjection;
-using System;
 
+/// <summary>
+/// Provides extension methods for registering BlazorMessageBus services with the dependency injection container.
+/// </summary>
 public static class BlazorMessageBusServiceCollectionExtensions
 {
     /// <summary>
@@ -15,10 +17,11 @@ public static class BlazorMessageBusServiceCollectionExtensions
     /// <returns>The updated service collection.</returns>
     public static IServiceCollection AddBlazorMessageBus(this IServiceCollection services, Action<BlazorMessageBusOptions>? configure = null)
     {
-        if (configure != null)
+        if (configure is not null)
         {
             services.Configure(configure);
         }
+
         services.AddSingleton<IBlazorMessageBus, MessageBus>();
         services.AddScoped<IBlazorMessageExchange, MessageExchange>();
         return services;

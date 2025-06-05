@@ -5,6 +5,9 @@ namespace Chaos.BlazorMessageBus;
 using System.Collections;
 using System.Collections.Immutable;
 
+/// <summary>
+/// Manages a collection of message subscriptions.
+/// </summary>
 internal class Subscriptions : IEnumerable<Subscription>, IDisposable
 {
     private Boolean _isDisposed;

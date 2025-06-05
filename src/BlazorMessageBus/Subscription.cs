@@ -4,6 +4,9 @@ namespace Chaos.BlazorMessageBus;
 
 using System.Diagnostics.CodeAnalysis;
 
+/// <summary>
+/// Represents a subscription to a message type.
+/// </summary>
 internal class Subscription : IBlazorMessageSubscription
 {
     private readonly Action _onDispose;

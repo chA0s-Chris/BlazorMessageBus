@@ -5,6 +5,9 @@ namespace Chaos.BlazorMessageBus;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 
+/// <summary>
+/// Represents the main implementation of the message bus for publishing and subscribing to messages.
+/// </summary>
 internal class MessageBus : IBlazorMessageBus
 {
     private readonly ConcurrentDictionary<Type, Message> _messages = [];
