@@ -53,6 +53,10 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 
+# Nuke
+.nuke/*
+!.nuke/parameters.json
+
 ###
 *.user
 .idea
