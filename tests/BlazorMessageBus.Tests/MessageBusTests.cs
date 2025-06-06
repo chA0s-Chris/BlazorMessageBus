@@ -140,6 +140,19 @@ public class MessageBusTests
     }
 
     [Test]
+    public async Task PublishAsync_AllSubscriptionsDisposedBeforePublish_ShouldNotThrowOrAggregate()
+    {
+        var messageBus = new MessageBus();
+        var subscription1 = messageBus.Subscribe<String>(_ => throw new InvalidOperationException());
+        var subscription2 = messageBus.Subscribe<String>(_ => throw new FileNotFoundException());
+        subscription1.Dispose();
+        subscription2.Dispose();
+
+        await FluentActions.Awaiting(() => messageBus.PublishAsync("Test"))
+                           .Should().NotThrowAsync();
+    }
+
+    [Test]
     public void Subscribe_WithNullAsynchronousHandler_ShouldThrowArgumentNullException()
     {
         var messageBus = CreateMessageBus();
