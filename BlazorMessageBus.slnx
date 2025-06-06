@@ -5,6 +5,7 @@
     <File Path="Directory.Packages.props" />
     <File Path="Version.props" />
     <File Path="global.json" />
+    <File Path="renovate.json" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src\BlazorMessageBus\BlazorMessageBus.csproj" Type="Classic C#" />
