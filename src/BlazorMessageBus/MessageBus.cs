@@ -4,6 +4,7 @@ namespace Chaos.BlazorMessageBus;
 
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
+using System.Runtime.ExceptionServices;
 
 /// <summary>
 /// Represents the main implementation of the message bus for publishing and subscribing to messages.
@@ -12,12 +13,14 @@ internal class MessageBus : IBlazorMessageBus
 {
     private readonly ConcurrentDictionary<Type, Message> _messages = [];
     private readonly Func<Exception, Task>? _onPublishException;
-    private readonly BlazorMessageBusOptions _options;
+    private readonly Boolean _stopOnFirstError;
 
     public MessageBus(IOptions<BlazorMessageBusOptions>? options = null)
     {
-        _options = options?.Value ?? new BlazorMessageBusOptions();
-        _onPublishException = _options.OnPublishException;
+        var messageBusOptions = options?.Value ?? new BlazorMessageBusOptions();
+
+        _stopOnFirstError = messageBusOptions.StopOnFirstError;
+        _onPublishException = messageBusOptions.OnPublishException;
     }
 
     public async Task PublishAsync<T>(T payload) where T : notnull
@@ -26,7 +29,7 @@ internal class MessageBus : IBlazorMessageBus
 
         var message = GetOrCreateMessage(typeof(T));
 
-        if (_options.StopOnFirstError)
+        if (_stopOnFirstError)
         {
             await InvokeSubscriptionsAndStopOnFirstErrorAsync(message.Subscriptions, payload).ConfigureAwait(false);
         }
@@ -60,30 +63,50 @@ internal class MessageBus : IBlazorMessageBus
             }
             catch (Exception exception)
             {
-                _onPublishException?.Invoke(exception);
+                if (_onPublishException is not null)
+                {
+                    await _onPublishException.Invoke(exception);
+                }
+
                 throw;
             }
         }
     }
 
-    private Task InvokeSubscriptionsAsync<T>(Subscriptions subscriptions, T payload) where T : notnull
+    private async Task InvokeSubscriptionsAsync<T>(Subscriptions subscriptions, T payload) where T : notnull
     {
-        var tasks =
-            subscriptions.Select(subscription
-                                     => subscription
-                                        .InvokeAsync(payload)
-                                        .ContinueWith(task =>
-                                        {
-                                            if (!task.IsFaulted || _onPublishException is null || task.Exception is null)
-                                                return;
+        var tasks = subscriptions.Select(s => InvokeSubscriptionWrapperAsync(s, payload)).ToArray();
 
-                                            foreach (var innerException in task.Exception.Flatten().InnerExceptions)
-                                            {
-                                                _onPublishException.Invoke(innerException);
-                                            }
-                                        }));
+        var exceptions = (await Task.WhenAll(tasks)).Where(e => e is not null)
+                                                    .Cast<Exception>()
+                                                    .ToList();
 
-        return Task.WhenAll(tasks);
+        if (exceptions.Count == 1)
+        {
+            ExceptionDispatchInfo.Capture(exceptions.First()).Throw();
+        }
+        else if (exceptions.Count > 1)
+        {
+            throw new AggregateException(exceptions);
+        }
+    }
+
+    private async Task<Exception?> InvokeSubscriptionWrapperAsync<T>(Subscription subscription, T payload) where T : notnull
+    {
+        try
+        {
+            await subscription.InvokeAsync(payload);
+            return null;
+        }
+        catch (Exception exception)
+        {
+            if (_onPublishException is not null)
+            {
+                await _onPublishException.Invoke(exception);
+            }
+
+            return exception;
+        }
     }
 
     private Subscription CreateSubscription<T>(MessageCallback callback)
