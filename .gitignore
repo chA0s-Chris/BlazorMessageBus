@@ -60,3 +60,6 @@ nunit-*.xml
 ###
 *.user
 .idea
+
+# signing key
+BlazorMessageBus.snk
