@@ -21,38 +21,12 @@ using System.Reflection;
 using System.Text.Json;
 
 internal class Build : NukeBuild,
-                       IHazArtifacts,
-                       IHazSolution,
-                       IHazGitRepository,
-                       ICompile,
-                       ITest,
-                       IPack,
                        IPublish,
                        IReportCoverage
 {
-    private Target Clean => target =>
-        target.Before<IRestore>()
-              .Executes(() =>
-              {
-                  SourceDirectory.GlobDirectories("**/bin", "**/obj").DeleteDirectories();
-                  TestsDirectory.GlobDirectories("**/bin", "**/obj").DeleteDirectories();
-
-                  ((IHazArtifacts)this).ArtifactsDirectory.CreateOrCleanDirectory();
-              });
-
-    private static AbsolutePath TestsDirectory => RootDirectory / "tests";
-
-    private AbsolutePath SourceDirectory => RootDirectory / "src";
-
-    private AbsolutePath CoverageSummary => From<IReportCoverage>().CoverageReportDirectory / "Summary.json";
-
     public Configure<DotNetBuildSettings> CompileSettings => settings =>
         settings.EnableContinuousIntegrationBuild()
                 .EnableTreatWarningsAsErrors();
-
-    public Configure<DotNetPublishSettings> PublishSettings => settings =>
-        settings.EnableContinuousIntegrationBuild();
-
 
     public Configuration Configuration => Configuration.Release;
 
@@ -67,12 +41,19 @@ internal class Build : NukeBuild,
                 .EnableIncludeSymbols()
                 .SetSymbolPackageFormat(DotNetSymbolPackageFormat.snupkg);
 
+    public Configure<DotNetPublishSettings> PublishSettings => settings =>
+        settings.EnableContinuousIntegrationBuild();
+
     public Configure<DotNetNuGetPushSettings> PushSettings => settings =>
         settings.EnableSkipDuplicate();
 
-    public Configure<ReportGeneratorSettings> ReportGeneratorSettings => settings =>
-        settings.SetReports(From<IReportCoverage>().TestResultDirectory / "**/coverage.cobertura.xml")
-                .SetReportTypes(ReportTypes.JsonSummary);
+    public IEnumerable<Project> TestProjects => GetTestProjects().ToList();
+
+    public Configure<DotNetTestSettings> TestSettings => settings =>
+        settings.EnableNoBuild()
+                .When(InvokedTargets.Contains(((IReportCoverage)this).ReportCoverage), transform =>
+                          transform.SetDataCollector("XPlat Code Coverage")
+                                   .SetSettingsFile("coverlet.xml"));
 
     public Target ReportCoverage => target =>
         target.Inherit<IReportCoverage>()
@@ -99,24 +80,33 @@ internal class Build : NukeBuild,
                   ReportSummary(config => config.AddPair("Coverage", coverage));
               });
 
-    Boolean IReportCoverage.CreateCoverageHtmlReport => true;
+    public Configure<ReportGeneratorSettings> ReportGeneratorSettings => settings =>
+        settings.SetReports(From<IReportCoverage>().TestResultDirectory / "**/coverage.cobertura.xml")
+                .SetReportTypes(ReportTypes.JsonSummary);
 
+    private static AbsolutePath SourceDirectory => RootDirectory / "src";
+
+    private static AbsolutePath TestsDirectory => RootDirectory / "tests";
+
+    private Target Clean => target =>
+        target.Before<IRestore>()
+              .Executes(() =>
+              {
+                  SourceDirectory.GlobDirectories("**/bin", "**/obj").DeleteDirectories();
+                  TestsDirectory.GlobDirectories("**/bin", "**/obj").DeleteDirectories();
+
+                  ((IHazArtifacts)this).ArtifactsDirectory.CreateOrCleanDirectory();
+              });
+
+    private AbsolutePath CoverageSummary => From<IReportCoverage>().CoverageReportDirectory / "Summary.json";
+
+    Boolean IReportCoverage.CreateCoverageHtmlReport => true;
 
     Boolean IReportCoverage.ReportToCodecov => false;
 
-    public Configure<DotNetTestSettings> TestSettings => settings =>
-        settings.EnableNoBuild()
-                .When(InvokedTargets.Contains(((IReportCoverage)this).ReportCoverage), transform =>
-                          transform.SetDataCollector("XPlat Code Coverage")
-                                   .SetSettingsFile("coverlet.xml"));
+    public static Int32 Main() => Execute<Build>(x => ((ICompile)x).Compile);
 
-    public IEnumerable<Project> TestProjects => GetTestProjects().ToList();
-
-    private IEnumerable<Project> GetTestProjects()
-        => TestsDirectory.GlobFiles("**/*.Tests.csproj")
-                         .Select(CreateProject);
-
-    private Project CreateProject(AbsolutePath projectFile)
+    private static Project CreateProject(AbsolutePath projectFile)
     {
         // Nuke currently does not support SLNX solution files and the Project class has no public constructor,
         // so we use reflection to fake projects until Nuke supports SLNX.
@@ -137,7 +127,9 @@ internal class Build : NukeBuild,
         return project;
     }
 
-    public static Int32 Main() => Execute<Build>(x => ((ICompile)x).Compile);
+    private static IEnumerable<Project> GetTestProjects()
+        => TestsDirectory.GlobFiles("**/*.Tests.csproj")
+                         .Select(CreateProject);
 
     private T From<T>() where T : INukeBuild => (T)(Object)this;
 }
