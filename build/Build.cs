@@ -48,7 +48,7 @@ internal class Build : NukeBuild,
                 .SetSymbolPackageFormat(DotNetSymbolPackageFormat.snupkg)
                 .SetVersion(SemanticVersion)
                 .When(!String.IsNullOrEmpty(ReleaseNotes),
-                      t => t.SetPackageReleaseNotes(ReleaseNotes));
+                      t => t.SetPackageReleaseNotes(EscapeStringForMsBuild(ReleaseNotes)));
 
     public Configure<DotNetPublishSettings> PublishSettings => settings =>
         settings.EnableContinuousIntegrationBuild();
@@ -92,6 +92,19 @@ internal class Build : NukeBuild,
     public Configure<ReportGeneratorSettings> ReportGeneratorSettings => settings =>
         settings.SetReports(From<IReportCoverage>().TestResultDirectory / "**/coverage.cobertura.xml")
                 .SetReportTypes(ReportTypes.JsonSummary);
+
+    private static Dictionary<Char, String> EscapeCharacters { get; } = new()
+    {
+        ['%'] = "%25",
+        ['$'] = "%24",
+        ['@'] = "%40",
+        ['\''] = "%27",
+        ['('] = "%28",
+        [')'] = "%29",
+        [';'] = "%3B",
+        ['?'] = "%3F",
+        ['*'] = "%2A"
+    };
 
     private static AbsolutePath ReleaseNotesFile => RootDirectory / "ReleaseNotes.md";
 
@@ -158,6 +171,9 @@ internal class Build : NukeBuild,
 
         return project;
     }
+
+    private static String EscapeStringForMsBuild(String text)
+        => String.Concat(text.Select(c => EscapeCharacters.TryGetValue(c, out var replacement) ? replacement : c.ToString()));
 
     private static IEnumerable<Project> GetTestProjects()
         => TestsDirectory.GlobFiles("**/*.Tests.csproj")
