@@ -69,7 +69,7 @@ jobs:
 
       - name: Create ReleaseNotes.md
         run: |
-          echo "# ${{ steps.drafter.outputs.tag_name }} (`date +%Y-%m-%d`)" > ReleaseNotes.md
+          echo "# ${{ steps.drafter.outputs.tag_name }} ($(date +%Y-%m-%d))" > ReleaseNotes.md
           echo "" >> ReleaseNotes.md
           echo "${{ steps.drafter.outputs.body }}" >> ReleaseNotes.md
 
