@@ -34,7 +34,7 @@ jobs:
 
       - name: Decode SNK
         run: |
-          echo "${{ secrets.DUMMYLIB_SNK }}" | base64 --decode > DummyLib.snk
+          echo "${{ secrets.BLAZORMESSAGEBUS_SNK }}" | base64 --decode > BlazorMessageBus.snk
 
       - name: Create tag v${{ github.event.inputs.version }}
         run: |
