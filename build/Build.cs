@@ -24,8 +24,14 @@ internal class Build : NukeBuild,
                        IPublish,
                        IReportCoverage
 {
+    [Parameter]
+    public String ReleaseVersion { get; set; } = "0.1.0-dev";
+
     public Configure<DotNetBuildSettings> CompileSettings => settings =>
-        settings.EnableContinuousIntegrationBuild()
+        settings.SetAssemblyVersion(AssemblyVersion)
+                .SetFileVersion(AssemblyVersion)
+                .SetInformationalVersion(SemanticVersion)
+                .EnableContinuousIntegrationBuild()
                 .EnableTreatWarningsAsErrors();
 
     public Configuration Configuration => Configuration.Release;
@@ -39,7 +45,10 @@ internal class Build : NukeBuild,
                 .AddProperty("SignAssembly", "true")
                 .AddProperty("AssemblyOriginatorKeyFile", "../../BlazorMessageBus.snk")
                 .EnableIncludeSymbols()
-                .SetSymbolPackageFormat(DotNetSymbolPackageFormat.snupkg);
+                .SetSymbolPackageFormat(DotNetSymbolPackageFormat.snupkg)
+                .SetVersion(SemanticVersion)
+                .When(!String.IsNullOrEmpty(ReleaseNotes),
+                      t => t.SetPackageReleaseNotes(ReleaseNotes));
 
     public Configure<DotNetPublishSettings> PublishSettings => settings =>
         settings.EnableContinuousIntegrationBuild();
@@ -84,27 +93,50 @@ internal class Build : NukeBuild,
         settings.SetReports(From<IReportCoverage>().TestResultDirectory / "**/coverage.cobertura.xml")
                 .SetReportTypes(ReportTypes.JsonSummary);
 
+    private static AbsolutePath ReleaseNotesFile => RootDirectory / "ReleaseNotes.md";
+
     private static AbsolutePath SourceDirectory => RootDirectory / "src";
 
     private static AbsolutePath TestsDirectory => RootDirectory / "tests";
+
+    private String AssemblyVersion { get; set; }
 
     private Target Clean => target =>
         target.Before<IRestore>()
               .Executes(() =>
               {
-                  SourceDirectory.GlobDirectories("**/bin", "**/obj").DeleteDirectories();
-                  TestsDirectory.GlobDirectories("**/bin", "**/obj").DeleteDirectories();
+                  DotNetTasks.DotNetClean(x => x.SetConfiguration(Configuration)
+                                                .EnableContinuousIntegrationBuild()
+                                                .DisableProcessOutputLogging());
 
                   ((IHazArtifacts)this).ArtifactsDirectory.CreateOrCleanDirectory();
               });
 
     private AbsolutePath CoverageSummary => From<IReportCoverage>().CoverageReportDirectory / "Summary.json";
 
+    private String ReleaseNotes { get; set; }
+
+    private String SemanticVersion { get; set; }
+
     Boolean IReportCoverage.CreateCoverageHtmlReport => true;
 
     Boolean IReportCoverage.ReportToCodecov => false;
 
     public static Int32 Main() => Execute<Build>(x => ((ICompile)x).Compile);
+
+    protected override void OnBuildCreated()
+    {
+        if (!SemanticVersioning.Version.TryParse(ReleaseVersion, out var version))
+            Assert.Fail($"Not a valid semantic version: {ReleaseVersion}");
+
+        SemanticVersion = version.ToString();
+        AssemblyVersion = $"{version.Major}.{version.Minor}.{version.Patch}.0";
+
+        if (ReleaseNotesFile.FileExists())
+        {
+            ReleaseNotes = ReleaseNotesFile.ReadAllText();
+        }
+    }
 
     private static Project CreateProject(AbsolutePath projectFile)
     {
