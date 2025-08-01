@@ -103,7 +103,8 @@ internal class Build : NukeBuild,
         [')'] = "%29",
         [';'] = "%3B",
         ['?'] = "%3F",
-        ['*'] = "%2A"
+        ['*'] = "%2A",
+        [','] = "%2C"
     };
 
     private static AbsolutePath ReleaseNotesFile => RootDirectory / "ReleaseNotes.md";
