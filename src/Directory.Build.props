@@ -4,6 +4,7 @@
   <PropertyGroup>
     <TargetFrameworks>$(MainTargets)</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>Chaos.BlazorMessageBus</PackageId>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageIcon>messagebus.png</PackageIcon>
     <Description>BlazorMessageBus - A lightweight message bus for Blazor applications.</Description>
