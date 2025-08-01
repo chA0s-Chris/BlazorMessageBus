@@ -1,6 +1,4 @@
 <Project>
-  <Import Project="Version.props" />
-
   <PropertyGroup>
     <LatestTarget>net9</LatestTarget>
     <MainTargets>$(LatestTarget);net8</MainTargets>

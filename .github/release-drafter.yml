@@ -1,0 +1,57 @@
+name-template: 'vNext'
+tag-template:  'vNext'
+
+branches:
+  - main
+
+change-template: '- $TITLE (#$NUMBER) by @$AUTHOR'
+
+change-title-escapes: '\\<*_&'
+
+no-changes-template: '- No changes since last release'
+
+category-template: '### $TITLE'
+categories:
+  - title: '✨ Features'
+    labels:
+      - enhancement
+      - feature
+  - title: '🐛 Bug Fixes'
+    labels:
+      - bug
+      - fix
+  - title: '⚡ Performance Improvements'
+    labels:
+      - perf
+  - title: '♻️ Refactoring'
+    labels:
+      - refactor
+  - title: '🧪 Tests'
+    labels:
+      - test
+  - title: '📚 Documentation'
+    labels:
+      - docs
+  - title: '🛠 Maintenance'
+    labels:
+      - chore
+      - ci
+      - build
+  - title: '🔄 Reverts'
+    labels:
+      - revert
+
+version-resolver:
+  major:
+    labels:
+      - major
+  minor:
+    labels:
+      - minor
+  patch:
+    labels:
+      - patch
+  default: patch
+
+template: |
+  $CHANGES

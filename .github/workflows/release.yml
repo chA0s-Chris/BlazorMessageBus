@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semantic version to release'
+        required: true
+        default: '0.1.0'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Initialize git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Decode SNK
+        run: |
+          echo "${{ secrets.BLAZORMESSAGEBUS_SNK }}" | base64 --decode > BlazorMessageBus.snk
+
+      - name: Create tag v${{ github.event.inputs.version }}
+        run: |
+          git tag -a "v${{ github.event.inputs.version }}" -m "Release v${{ github.event.inputs.version }}"
+
+      - name: Draft PR-level release notes
+        id: drafter
+        uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+          tag: v${{ github.event.inputs.version }}
+          name: v${{ github.event.inputs.version }}
+          publish: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update CHANGELOG.md
+        run: |
+          HEADER_FILE="$(mktemp)"
+          CHANGES_FILE="$(mktemp)"
+
+          sed -n '/^## /q; p' CHANGELOG.md > $HEADER_FILE
+          sed -n '/^## /,$p' CHANGELOG.md > $CHANGES_FILE
+
+          cat "$HEADER_FILE" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "## ${{ steps.drafter.outputs.tag_name }} ($(date +%Y-%m-%d))" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "${{ steps.drafter.outputs.body }}" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          cat "$CHANGES_FILE" >> CHANGELOG.md
+
+      - name: Create ReleaseNotes.md
+        run: |
+          echo "# ${{ steps.drafter.outputs.tag_name }} ($(date +%Y-%m-%d))" > ReleaseNotes.md
+          echo "" >> ReleaseNotes.md
+          echo "${{ steps.drafter.outputs.body }}" >> ReleaseNotes.md
+
+      - name: Restore & Pack
+        run: |
+          bash build.sh Pack --release-version ${{ github.event.inputs.version }}
+
+      - name: Push tag v${{ github.event.inputs.version }}
+        run: |
+          git push origin "v${{ github.event.inputs.version }}"
+
+      - name: Commit updated CHANGELOG.md
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: 'github-actions[bot]'
+          author_email: 'github-actions[bot]@users.noreply.github.com'
+          message: "docs: update CHANGELOG for ${{ steps.drafter.outputs.tag_name }} [skip ci]"
+          add: 'CHANGELOG.md'
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.drafter.outputs.tag_name }}
+          name: ${{ steps.drafter.outputs.name }}
+          body: ${{ steps.drafter.outputs.body }}
+          draft: false
+          make_latest: true
+          files: |
+            artifacts/packages/*.nupkg
+            artifacts/packages/*.snupkg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+#      - name: Push to nuget.org
+#        run: |
+#          dotnet nuget push **/nupkg/*.nupkg \
+#            --api-key ${{ secrets.NUGET_API_KEY }} \
+#            --source https://api.nuget.org/v3/index.json \
+#            --skip-duplicate

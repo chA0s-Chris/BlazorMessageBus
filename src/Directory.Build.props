@@ -5,12 +5,12 @@
     <TargetFrameworks>$(MainTargets)</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <!-- <PackageIcon></PackageIcon>
-    <Description></Description> -->
+    <PackageIcon>messagebus.png</PackageIcon>
+    <Description>BlazorMessageBus - A lightweight message bus for Blazor applications.</Description>
     <Authors>Christian Flessa</Authors>
     <Copyright>Copyright © 2025 Christian Flessa</Copyright>
     <PackageProjectUrl>https://github.com/chA0s-Chris/BlazorMessageBus</PackageProjectUrl>
-    <!-- <PackageTags></PackageTags> -->
+    <PackageTags>Blazor;MessageBus;Message;Bus;Pub;Sub;PubSub;Messaging;Blazor-WebAssembly;Blazor-WASM;</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <DefineConstants>$(DefineConstants);$(AdditionalConstants)</DefineConstants>
   </PropertyGroup>
@@ -24,5 +24,6 @@
 
   <ItemGroup>
     <None Include="../../README.md" Pack="true" Visible="false" PackagePath="" />
+    <None Include="../../dist/messagebus.png" Pack="true" Visible="false" PackagePath="" />
   </ItemGroup>
 </Project>
