@@ -61,7 +61,7 @@ jobs:
 
           cat "$HEADER_FILE" > CHANGELOG.md
           echo "" >> CHANGELOG.md
-          echo "## ${{ steps.drafter.outputs.tag_name }} (`date +%Y-%m-%d`)" >> CHANGELOG.md
+          echo "## ${{ steps.drafter.outputs.tag_name }} ($(date +%Y-%m-%d))" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
           echo "${{ steps.drafter.outputs.body }}" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
