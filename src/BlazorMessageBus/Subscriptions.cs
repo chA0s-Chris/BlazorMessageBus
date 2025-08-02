@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2025 Christian Flessa. All rights reserved.
+// Copyright (c) 2025 Christian Flessa. All rights reserved.
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
@@ -10,41 +10,76 @@ using System.Collections.Immutable;
 /// </summary>
 internal class Subscriptions : IEnumerable<Subscription>, IDisposable
 {
+#if NET9_0_OR_GREATER
     private Boolean _isDisposed;
-    private ImmutableList<Subscription> _subscriptions = [];
-
-    public void Dispose()
-    {
-        if (_isDisposed)
-            return;
-
-        _isDisposed = true;
-
-        foreach (var subscription in _subscriptions.ToList())
-        {
-            subscription.Dispose(false);
-        }
-
-        _subscriptions = [];
-    }
-
-    public IEnumerator<Subscription> GetEnumerator() => _subscriptions.GetEnumerator();
-
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-    private void PurgeInactiveSubscriptions()
-        => ImmutableInterlocked.Update(ref _subscriptions,
-                                       x => x.RemoveAll(s => !s.IsAlive));
+#else
+    private Int32 _isDisposed; // 0 = false, 1 = true
+#endif
+    private ImmutableList<Subscription>? _subscriptions = [];
 
     public Subscription CreateSubscription(MessageCallback callback)
     {
         ArgumentNullException.ThrowIfNull(callback);
 
+#if NET9_0_OR_GREATER
+        if (_isDisposed)
+#else
+        if (_isDisposed == 1)
+#endif
+        {
+            throw new ObjectDisposedException(nameof(Subscriptions),
+                                              "Cannot create subscription on disposed Subscriptions collection.");
+        }
+
         var subscription = new Subscription(callback, PurgeInactiveSubscriptions);
 
+        ImmutableList<Subscription>? resultingList = null;
         ImmutableInterlocked.Update(ref _subscriptions,
-                                    (list, sub) => list.Add(sub), subscription);
+                                    (current, sub) => resultingList = current?.Add(sub),
+                                    subscription);
+
+        if (resultingList is null)
+        {
+            subscription.Dispose(false);
+            throw new ObjectDisposedException(nameof(Subscriptions),
+                                              "Cannot create subscription on disposed Subscriptions collection.");
+        }
 
         return subscription;
+    }
+
+    private void PurgeInactiveSubscriptions()
+    {
+        ImmutableInterlocked.Update(ref _subscriptions,
+                                    current => current?.RemoveAll(s => !s.IsAlive));
+    }
+
+    public void Dispose()
+    {
+#if NET9_0_OR_GREATER
+        if (Interlocked.CompareExchange(ref _isDisposed, true, false))
+            return;
+#else
+        if (Interlocked.CompareExchange(ref _isDisposed, 1, 0) == 1)
+            return;
+#endif
+
+        var subscriptionsToDispose = Interlocked.Exchange(ref _subscriptions, null);
+
+        if (subscriptionsToDispose is not null)
+        {
+            foreach (var subscription in subscriptionsToDispose)
+            {
+                subscription.Dispose(false);
+            }
+        }
+    }
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public IEnumerator<Subscription> GetEnumerator()
+    {
+        var currentSubscriptions = _subscriptions;
+        return currentSubscriptions?.GetEnumerator() ?? Enumerable.Empty<Subscription>().GetEnumerator();
     }
 }
