@@ -81,14 +81,6 @@ jobs:
         run: |
           git push origin "v${{ github.event.inputs.version }}"
 
-#      - name: Commit updated CHANGELOG.md
-#        uses: EndBug/add-and-commit@v9
-#        with:
-#          author_name: 'github-actions[bot]'
-#          author_email: 'github-actions[bot]@users.noreply.github.com'
-#          message: "docs: update CHANGELOG for ${{ steps.drafter.outputs.tag_name }} [skip ci]"
-#          add: 'CHANGELOG.md'
-
       - name: Commit CHANGELOG.md to new release branch
         uses: EndBug/add-and-commit@v9
         with:
@@ -109,11 +101,6 @@ jobs:
 
           gh pr view "$BRANCH" --json url >/dev/null 2>&1 || \
             gh pr create --title "$TITLE" --body "$BODY" --base main --head "$BRANCH"
-
-          PR_NUMBER=$(gh pr view "$BRANCH" --json number -q .number)
-          gh pr review "$PR_NUMBER" --approve
-          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
-
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
