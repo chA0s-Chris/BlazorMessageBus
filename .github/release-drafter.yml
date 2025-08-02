@@ -52,6 +52,7 @@ categories:
   - title: '📚 Documentation'
     labels:
       - docs
+      - documentation
 
 template: |
   $CHANGES
