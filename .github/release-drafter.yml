@@ -4,7 +4,7 @@ tag-template:  'vNext'
 branches:
   - main
 
-change-template: '- $TITLE (#$NUMBER) by @$AUTHOR on $MERGED_AT'
+change-template: '- $TITLE (#$NUMBER) by @$AUTHOR'
 
 change-title-escapes: '\\<*_&'
 no-changes-template: '- No changes since last release'
