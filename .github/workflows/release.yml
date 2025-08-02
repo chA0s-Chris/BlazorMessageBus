@@ -91,7 +91,7 @@ jobs:
           new_branch: "release/changelog-v${{ github.event.inputs.version }}"
           push: true
 
-      - name: Open PR and enable auto-merge
+      - name: Open PR
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
