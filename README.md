@@ -23,7 +23,7 @@ BlazorMessageBus enables decoupled communication between components and services
 Add the NuGet package:
 
 ```
-dotnet add package BlazorMessageBus
+dotnet add package Chaos.BlazorMessageBus
 ```
 
 ## Getting Started
