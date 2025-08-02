@@ -23,11 +23,11 @@ internal class MessageCallbackAsync<T>(SubscriptionHandlerAsync<T> handler) : Me
         => handler.Invoke((T)payload);
 }
 
-// <summary>
-// Represents a callback for a message subscription that can handle synchronous operations.
-// </summary>
-// <param name="handler">Synchronous handler.</param>
-// <typeparam name="T">Message type.</typeparam>
+/// <summary>
+/// Represents a callback for a message subscription that can handle synchronous operations.
+/// </summary>
+/// <param name="handler">Synchronous handler.</param>
+/// <typeparam name="T">Message type.</typeparam>
 internal class MessageCallback<T>(SubscriptionHandler<T> handler) : MessageCallback(typeof(T))
 {
     public override Task InvokeAsync(Object payload)

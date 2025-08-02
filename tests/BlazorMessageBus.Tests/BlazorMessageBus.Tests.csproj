@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <RootNamespace>Cha0s.BlazorMessageBus</RootNamespace>
+    <RootNamespace>Chaos.BlazorMessageBus</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\BlazorMessageBus\BlazorMessageBus.csproj" />

@@ -1,8 +1,7 @@
 ﻿// Copyright (c) 2025 Christian Flessa. All rights reserved.
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
-namespace Cha0s.BlazorMessageBus;
+namespace Chaos.BlazorMessageBus;
 
-using Chaos.BlazorMessageBus;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
