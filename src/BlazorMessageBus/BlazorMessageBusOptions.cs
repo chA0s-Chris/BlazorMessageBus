@@ -8,7 +8,7 @@ namespace Chaos.BlazorMessageBus;
 public record BlazorMessageBusOptions
 {
     /// <summary>
-    /// If <see langword="true"/>, publishing will stop on the first handler exception. If <see langword="true"/>, all handlers are invoked.
+    /// If <see langword="true"/>, publishing will stop on the first handler exception. If <see langword="false"/>, all handlers are invoked.
     /// Default: <see langword="false"/>.
     /// </summary>
     public Boolean StopOnFirstError { get; set; }
