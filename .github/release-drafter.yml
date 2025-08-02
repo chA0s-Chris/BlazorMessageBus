@@ -7,11 +7,37 @@ branches:
 change-template: '- $TITLE (#$NUMBER) by @$AUTHOR'
 
 change-title-escapes: '\\<*_&'
-
 no-changes-template: '- No changes since last release'
+
+sort-by: merged_at
+sort-direction: descending
+
+exclude-contributors:
+  - renovate[bot]
+
+exclude-labels:
+  - skip-changelog
+  - renovate
+  - chore
+  - ci
+  - build
+  - test
+  - refactor
+
+include-labels:
+  - breaking
+  - enhancement
+  - feature
+  - bug
+  - fix
+  - perf
+  - docs
 
 category-template: '### $TITLE'
 categories:
+  - title: '💥 Breaking Changes'
+    labels:
+      - breaking
   - title: '✨ Features'
     labels:
       - enhancement
@@ -23,35 +49,9 @@ categories:
   - title: '⚡ Performance Improvements'
     labels:
       - perf
-  - title: '♻️ Refactoring'
-    labels:
-      - refactor
-  - title: '🧪 Tests'
-    labels:
-      - test
   - title: '📚 Documentation'
     labels:
       - docs
-  - title: '🛠 Maintenance'
-    labels:
-      - chore
-      - ci
-      - build
-  - title: '🔄 Reverts'
-    labels:
-      - revert
-
-version-resolver:
-  major:
-    labels:
-      - major
-  minor:
-    labels:
-      - minor
-  patch:
-    labels:
-      - patch
-  default: patch
 
 template: |
   $CHANGES
