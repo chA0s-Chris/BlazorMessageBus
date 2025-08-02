@@ -81,13 +81,39 @@ jobs:
         run: |
           git push origin "v${{ github.event.inputs.version }}"
 
-      - name: Commit updated CHANGELOG.md
+#      - name: Commit updated CHANGELOG.md
+#        uses: EndBug/add-and-commit@v9
+#        with:
+#          author_name: 'github-actions[bot]'
+#          author_email: 'github-actions[bot]@users.noreply.github.com'
+#          message: "docs: update CHANGELOG for ${{ steps.drafter.outputs.tag_name }} [skip ci]"
+#          add: 'CHANGELOG.md'
+
+      - name: Commit CHANGELOG.md to new release branch
         uses: EndBug/add-and-commit@v9
         with:
           author_name: 'github-actions[bot]'
           author_email: 'github-actions[bot]@users.noreply.github.com'
-          message: "docs: update CHANGELOG for ${{ steps.drafter.outputs.tag_name }} [skip ci]"
+          message: "docs: update CHANGELOG for ${{ github.event.inputs.version }} [skip ci]"
           add: 'CHANGELOG.md'
+          new_branch: "release/changelog-v${{ github.event.inputs.version }}"
+          push: true
+
+      - name: Open PR and enable auto-merge
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="release/changelog-v${{ github.event.inputs.version }}"
+          TITLE="docs: update CHANGELOG.md for ${{ steps.drafter.outputs.tag_name }}"
+          BODY="Automatic CHANGELOG.md update for ${{ steps.drafter.outputs.tag_name }}."
+
+          gh pr view "$BRANCH" --json url >/dev/null 2>&1 || \
+            gh pr create --title "$TITLE" --body "$BODY" --base main --head "$BRANCH"
+
+          PR_NUMBER=$(gh pr view "$BRANCH" --json number -q .number)
+          gh pr review "$PR_NUMBER" --approve
+          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
+
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
