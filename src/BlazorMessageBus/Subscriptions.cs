@@ -21,6 +21,16 @@ internal class Subscriptions : IEnumerable<Subscription>, IDisposable
     {
         ArgumentNullException.ThrowIfNull(callback);
 
+#if NET9_0_OR_GREATER
+        if (_isDisposed)
+#else
+        if (_isDisposed == 1)
+#endif
+        {
+            throw new ObjectDisposedException(nameof(Subscriptions),
+                                              "Cannot create subscription on disposed Subscriptions collection.");
+        }
+
         var subscription = new Subscription(callback, PurgeInactiveSubscriptions);
 
         ImmutableList<Subscription>? resultingList = null;
@@ -54,7 +64,6 @@ internal class Subscriptions : IEnumerable<Subscription>, IDisposable
             return;
 #endif
 
-        // Atomically get current subscriptions and set to null (disposed state)
         var subscriptionsToDispose = Interlocked.Exchange(ref _subscriptions, null);
 
         if (subscriptionsToDispose is not null)
