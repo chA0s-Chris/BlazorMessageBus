@@ -4,8 +4,8 @@ A lightweight, thread-safe message bus for Blazor applications.
 BlazorMessageBus enables decoupled communication between components and services using a publish/subscribe pattern.
 
 [![GitHub License](https://img.shields.io/github/license/chA0s-Chris/BlazorMessageBus?style=for-the-badge)](https://github.com/chA0s-Chris/BlazorMessageBus/blob/main/LICENSE)
-[![NuGet Version](https://img.shields.io/nuget/v/BlazorMessageBus?style=for-the-badge)](https://www.nuget.org/packages/BlazorMessageBus)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/BlazorMessageBus?style=for-the-badge)](https://www.nuget.org/packages/BlazorMessageBus)
+[![NuGet Version](https://img.shields.io/nuget/v/Chaos.BlazorMessageBus?style=for-the-badge)](https://www.nuget.org/packages/Chaos.BlazorMessageBus)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/Chaos.BlazorMessageBus?style=for-the-badge)](https://www.nuget.org/packages/Chaos.BlazorMessageBus)
 [![GitHub last commit](https://img.shields.io/github/last-commit/chA0s-Chris/BlazorMessageBus?style=for-the-badge)](https://github.com/chA0s-Chris/BlazorMessageBus/commits/)
 [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/chA0s-Chris/BlazorMessageBus/ci.yml?style=for-the-badge)]()
 
