@@ -23,8 +23,8 @@ public static class BlazorMessageBusServiceCollectionExtensions
             services.Configure(configure);
         }
 
-        services.AddSingleton<IBlazorMessageBus, MessageBus>();
-        services.AddScoped<IBlazorMessageExchange, MessageExchange>();
+        services.AddScoped<IBlazorMessageBus, MessageBus>();
+        services.AddTransient<IBlazorMessageExchange, MessageExchange>();
         return services;
     }
 }
