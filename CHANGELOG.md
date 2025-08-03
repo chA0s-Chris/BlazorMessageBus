@@ -5,6 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 
 
+
+## v0.2.0 (2025-08-03)
+
+### 🐛 Bug Fixes
+
+- Fix lifetimes for BlazorMessageBus and BlazorMessageExchange services (#23) by @chA0s-Chris
+
+
 ## v0.1.1 (2025-08-02)
 
 ### 🐛 Bug Fixes
