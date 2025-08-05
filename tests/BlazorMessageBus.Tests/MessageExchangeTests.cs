@@ -1,14 +1,15 @@
-﻿// Copyright (c) 2025 Christian Flessa. All rights reserved.
+// Copyright (c) 2025 Christian Flessa. All rights reserved.
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
+using Chaos.BlazorMessageBus.Bridging;
 using FluentAssertions;
 using Moq;
 using NUnit.Framework;
 
 public class MessageExchangeTests
 {
-    private Mock<IBlazorMessageBus> _messageBusMock;
+    private Mock<IBridgeableMessageBus> _messageBusMock;
     private MessageExchange _messageExchange;
 
     [SetUp]
@@ -68,19 +69,36 @@ public class MessageExchangeTests
     [Test]
     public void Dispose_ShouldDisposeAllSubscriptions()
     {
-        var subscription1 = new Mock<IBlazorMessageSubscription>();
-        var subscription2 = new Mock<IBlazorMessageSubscription>();
+        var subscriptionMock1 = new Mock<IBlazorMessageSubscription>();
+        var subscriptionMock2 = new Mock<IBlazorMessageSubscription>();
 
-        _messageExchange.Subscriptions.Add(subscription1.Object);
-        _messageExchange.Subscriptions.Add(subscription2.Object);
-
-        subscription1.Setup(s => s.Dispose());
-        subscription2.Setup(s => s.Dispose());
+        _messageExchange.Subscriptions.Add(subscriptionMock1.Object);
+        _messageExchange.Subscriptions.Add(subscriptionMock2.Object);
 
         _messageExchange.Dispose();
 
-        subscription1.VerifyAll();
-        subscription2.VerifyAll();
+        subscriptionMock1.Verify(s => s.Dispose(), Times.Once);
+        subscriptionMock2.Verify(s => s.Dispose(), Times.Once);
+
         _messageExchange.Subscriptions.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Dispose_WithNoSubscriptions_ShouldNotThrow()
+    {
+        FluentActions.Invoking(() => _messageExchange.Dispose()).Should().NotThrow();
+    }
+
+    [Test]
+    public void Dispose_CalledMultipleTimes_ShouldNotThrow()
+    {
+        var subscriptionMock = new Mock<IBlazorMessageSubscription>();
+        _messageExchange.Subscriptions.Add(subscriptionMock.Object);
+
+        FluentActions.Invoking(() =>
+        {
+            _messageExchange.Dispose();
+            _messageExchange.Dispose();
+        }).Should().NotThrow();
     }
 }
