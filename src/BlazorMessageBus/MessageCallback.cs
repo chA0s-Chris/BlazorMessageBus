@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2025 Christian Flessa. All rights reserved.
+// Copyright (c) 2025 Christian Flessa. All rights reserved.
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
@@ -35,6 +35,52 @@ internal class MessageCallback<T>(SubscriptionHandler<T> handler) : MessageCallb
         try
         {
             handler.Invoke((T)payload);
+            return Task.CompletedTask;
+        }
+        catch (Exception e)
+        {
+            return Task.FromException(e);
+        }
+    }
+}
+
+/// <summary>
+/// Represents a callback for a message subscription using a non-generic asynchronous handler.
+/// </summary>
+/// <param name="handler">Asynchronous object-typed handler.</param>
+/// <param name="type">Runtime message type this callback is associated with.</param>
+internal sealed class MessageCallbackAsyncObject(SubscriptionHandlerAsync<Object> handler, Type type) : MessageCallback(type)
+{
+    public override Task InvokeAsync(Object payload)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+        if (payload.GetType() != Type)
+        {
+            throw new ArgumentException($"Payload type '{payload.GetType()}' does not match expected subscription type '{Type}'.", nameof(payload));
+        }
+
+        return handler.Invoke(payload);
+    }
+}
+
+/// <summary>
+/// Represents a callback for a message subscription using a non-generic synchronous handler.
+/// </summary>
+/// <param name="handler">Synchronous object-typed handler.</param>
+/// <param name="type">Runtime message type this callback is associated with.</param>
+internal sealed class MessageCallbackObject(SubscriptionHandler<Object> handler, Type type) : MessageCallback(type)
+{
+    public override Task InvokeAsync(Object payload)
+    {
+        try
+        {
+            ArgumentNullException.ThrowIfNull(payload);
+            if (payload.GetType() != Type)
+            {
+                throw new ArgumentException($"Payload type '{payload.GetType()}' does not match expected subscription type '{Type}'.", nameof(payload));
+            }
+
+            handler.Invoke(payload);
             return Task.CompletedTask;
         }
         catch (Exception e)
