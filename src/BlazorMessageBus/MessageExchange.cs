@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2025 Christian Flessa. All rights reserved.
+// Copyright (c) 2025 Christian Flessa. All rights reserved.
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
@@ -16,9 +16,6 @@ internal class MessageExchange : IBlazorMessageExchange
 
     internal List<IBlazorMessageSubscription> Subscriptions { get; } = [];
 
-    public Task PublishAsync<T>(T payload) where T : notnull
-        => _messageBus.PublishAsync(payload);
-
     public void Subscribe<T>(SubscriptionHandlerAsync<T> handler)
     {
         var subscription = _messageBus.Subscribe(handler);
@@ -30,6 +27,24 @@ internal class MessageExchange : IBlazorMessageExchange
         var subscription = _messageBus.Subscribe(handler);
         Subscriptions.Add(subscription);
     }
+
+    public void Subscribe(Type messageType, SubscriptionHandlerAsync<Object> handler)
+    {
+        var subscription = _messageBus.Subscribe(messageType, handler);
+        Subscriptions.Add(subscription);
+    }
+
+    public void Subscribe(Type messageType, SubscriptionHandler<Object> handler)
+    {
+        var subscription = _messageBus.Subscribe(messageType, handler);
+        Subscriptions.Add(subscription);
+    }
+
+    public Task PublishAsync<T>(T payload) where T : notnull
+        => _messageBus.PublishAsync(payload);
+
+    public Task PublishAsync(Object payload)
+        => _messageBus.PublishAsync(payload);
 
     public void Dispose()
     {

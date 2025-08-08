@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2025 Christian Flessa. All rights reserved.
+// Copyright (c) 2025 Christian Flessa. All rights reserved.
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
@@ -23,11 +23,18 @@ internal class MessageBus : IBlazorMessageBus
         _onPublishException = messageBusOptions.OnPublishException;
     }
 
-    public async Task PublishAsync<T>(T payload) where T : notnull
+    private Subscription CreateSubscription(Type type, MessageCallback callback)
     {
-        ArgumentNullException.ThrowIfNull(payload);
+        var message = GetOrCreateMessage(type);
+        return message.Subscriptions.CreateSubscription(callback);
+    }
 
-        var message = GetOrCreateMessage(typeof(T));
+    private Message GetOrCreateMessage(Type type)
+        => _messages.GetOrAdd(type, t => new(t));
+
+    private async Task InternalPublishAsync(Type payloadType, Object payload)
+    {
+        var message = GetOrCreateMessage(payloadType);
 
         if (_stopOnFirstError)
         {
@@ -37,20 +44,6 @@ internal class MessageBus : IBlazorMessageBus
         {
             await InvokeSubscriptionsAsync(message.Subscriptions, payload).ConfigureAwait(false);
         }
-    }
-
-    public IBlazorMessageSubscription Subscribe<T>(SubscriptionHandlerAsync<T> handler)
-    {
-        ArgumentNullException.ThrowIfNull(handler);
-
-        return CreateSubscription<T>(new MessageCallbackAsync<T>(handler));
-    }
-
-    public IBlazorMessageSubscription Subscribe<T>(SubscriptionHandler<T> handler)
-    {
-        ArgumentNullException.ThrowIfNull(handler);
-
-        return CreateSubscription<T>(new MessageCallback<T>(handler));
     }
 
     private async Task InvokeSubscriptionsAndStopOnFirstErrorAsync<T>(Subscriptions subscriptions, T payload) where T : notnull
@@ -109,13 +102,41 @@ internal class MessageBus : IBlazorMessageBus
         }
     }
 
-    private Subscription CreateSubscription<T>(MessageCallback callback)
+    public IBlazorMessageSubscription Subscribe<T>(SubscriptionHandlerAsync<T> handler)
     {
-        var type = typeof(T);
-        var message = GetOrCreateMessage(type);
-        return message.Subscriptions.CreateSubscription(callback);
+        ArgumentNullException.ThrowIfNull(handler);
+        return CreateSubscription(typeof(T), new MessageCallbackAsync<T>(handler));
     }
 
-    private Message GetOrCreateMessage(Type type)
-        => _messages.GetOrAdd(type, t => new(t));
+    public IBlazorMessageSubscription Subscribe<T>(SubscriptionHandler<T> handler)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        return CreateSubscription(typeof(T), new MessageCallback<T>(handler));
+    }
+
+    public IBlazorMessageSubscription Subscribe(Type messageType, SubscriptionHandlerAsync<Object> handler)
+    {
+        ArgumentNullException.ThrowIfNull(messageType);
+        ArgumentNullException.ThrowIfNull(handler);
+        return CreateSubscription(messageType, new MessageCallbackAsyncObject(handler, messageType));
+    }
+
+    public IBlazorMessageSubscription Subscribe(Type messageType, SubscriptionHandler<Object> handler)
+    {
+        ArgumentNullException.ThrowIfNull(messageType);
+        ArgumentNullException.ThrowIfNull(handler);
+        return CreateSubscription(messageType, new MessageCallbackObject(handler, messageType));
+    }
+
+    public Task PublishAsync<T>(T payload) where T : notnull
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+        return InternalPublishAsync(typeof(T), payload);
+    }
+
+    public Task PublishAsync(Object payload)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+        return InternalPublishAsync(payload.GetType(), payload);
+    }
 }
