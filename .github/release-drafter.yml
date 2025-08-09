@@ -32,6 +32,7 @@ include-labels:
   - fix
   - perf
   - docs
+  - documentation
 
 category-template: '### $TITLE'
 categories:
