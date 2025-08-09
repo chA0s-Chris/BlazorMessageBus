@@ -53,6 +53,8 @@ await MessageBus.PublishAsync("Hello, world!");
 subscription.Dispose();
 ```
 
+For cleanup best practices, see [Disposal and Lifecycle Guidance](#disposal-and-lifecycle-guidance).
+
 3. **For Blazor components, use `IBlazorMessageExchange` for automatic cleanup:**
 
 ```csharp
@@ -68,6 +70,8 @@ public void Dispose()
     MessageExchange.Dispose();
 }
 ```
+
+For cleanup best practices, see [Disposal and Lifecycle Guidance](#disposal-and-lifecycle-guidance).
 
 ## Configuration Options
 
@@ -127,6 +131,15 @@ Dispose the returned subscription to unsubscribe:
 var subscription = MessageBus.Subscribe<string>(...);
 subscription.Dispose();
 ```
+
+## Disposal and Lifecycle Guidance
+
+- `IBlazorMessageExchange` must be disposed with the owning component’s lifecycle. Implement `IDisposable` or `IAsyncDisposable` on the component and dispose the exchange in `Dispose()`/`DisposeAsync()`.
+- Subscriptions returned from `Subscribe(...)` implement `IDisposable`. Disposing a subscription stops further message delivery; there is no separate “Unsubscribe”.
+- Scope subscriptions to the component that created them. Prefer per-component exchanges over long-lived, global subscriptions.
+- Treat disposal as idempotent and safe to call multiple times from a consumer perspective. After disposal, do not expect further callbacks; in-flight callbacks may complete, but new ones should not be scheduled.
+- Avoid blocking in disposal paths. Do not wait on asynchronous work during disposal; release references and let in-flight operations complete naturally.
+- For Blazor components, create the exchange during initialization and keep a field reference; dispose it in the component’s `Dispose()`/`DisposeAsync()` so all managed subscriptions are also cleaned up.
 
 ## License
 
