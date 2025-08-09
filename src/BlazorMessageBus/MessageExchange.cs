@@ -2,14 +2,16 @@
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
+using Chaos.BlazorMessageBus.Bridging;
+
 /// <summary>
 /// Represents a message exchange that manages subscriptions within a Blazor component's scope.
 /// </summary>
 internal class MessageExchange : IBlazorMessageExchange
 {
-    private readonly IBlazorMessageBus _messageBus;
+    private readonly IBridgeableMessageBus _messageBus;
 
-    public MessageExchange(IBlazorMessageBus messageBus)
+    public MessageExchange(IBridgeableMessageBus messageBus)
     {
         _messageBus = messageBus;
     }

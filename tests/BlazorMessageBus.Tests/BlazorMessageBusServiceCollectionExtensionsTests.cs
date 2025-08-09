@@ -2,6 +2,7 @@
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
+using Chaos.BlazorMessageBus.Bridging;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -23,6 +24,7 @@ public class BlazorMessageBusServiceCollectionExtensionsTests
 
         serviceProvider.GetService<IBlazorMessageBus>().Should().NotBeNull();
         serviceProvider.GetService<IBlazorMessageExchange>().Should().NotBeNull();
+        serviceProvider.GetService<IBridgeableMessageBus>().Should().NotBeNull();
     }
 
     [Test]
