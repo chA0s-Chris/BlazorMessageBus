@@ -1,4 +1,4 @@
----
+﻿---
 trigger: glob
 description: Unit test conventions for NUnit + Moq + FluentAssertions to keep tests clear, reliable, and consistent.
 globs: tests/**/*.cs
@@ -11,6 +11,7 @@ globs: tests/**/*.cs
 - Follow Microsoft's Unit Testing Best Practices for .NET: https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-best-practices
 
 ### File & Class Organization
+- Mirror the source folder structure under tests (e.g., `src/BlazorMessageBus/Bridging/BlazorMessageBridge.cs` -> `tests/BlazorMessageBus.Tests/Bridging/BlazorMessageBridgeTests.cs`).
 - Place tests for a specific class in a test file named like the original code file with a `Tests` suffix. Example: tests for `MessageBus.cs` go in `MessageBusTests.cs`.
 - Do not add `[TestFixture]` to the test class (not required with modern NUnit).
 
