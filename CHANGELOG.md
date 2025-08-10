@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 
 
+
+## v0.3.0 (2025-08-10)
+
+### ✨ Features
+
+- Add support for bridging messages between multiple MessageBus instances (#26) by @chA0s-Chris
+- Add support for type-based non-generic subscriptions and publishing (#27) by @chA0s-Chris
+
+### 📚 Documentation
+
+- Add disposal and lifecycle guidance to README.md (#28) by @chA0s-Chris
+
+
 ## v0.2.0 (2025-08-03)
 
 ### 🐛 Bug Fixes
