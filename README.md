@@ -195,6 +195,26 @@ bridgeToB.Dispose();
 inboundBridge.Dispose();
 ```
 
+### Monitoring Bridging Errors
+
+To observe forwarding failures without impacting local delivery, configure `OnBridgeException`:
+
+```csharp
+// Program.cs
+builder.Services.AddBlazorMessageBus(options =>
+{
+    options.OnBridgeException = ex =>
+    {
+        // Replace with your logging/telemetry of choice
+        Console.Error.WriteLine($"[BridgeError] {ex}");
+        return Task.CompletedTask;
+    };
+});
+```
+
+The callback is invoked when the bridge filter predicate or the outbound transport handler throws. 
+Exceptions thrown by the callback itself are swallowed to avoid cascading failures.
+
 ## License
 
 MIT License - see [LICENSE](./LICENSE) for more information.
