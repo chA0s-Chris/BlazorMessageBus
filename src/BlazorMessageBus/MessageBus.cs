@@ -67,7 +67,9 @@ internal class MessageBus : IBlazorMessageBus, IBlazorMessageBridgeTarget
 
         if (!_bridges.IsEmpty)
         {
-            // Do not await bridge forwarding
+            // Do not await bridge forwarding (fire-and-forget).
+            // Any exceptions thrown during bridge forwarding are handled by OnBridgeException (if provided)
+            // and will not affect the calling code.
             _ = ForwardMessageToBridges(payloadType, payload, skipBridgeId, cancellationToken);
         }
     }
