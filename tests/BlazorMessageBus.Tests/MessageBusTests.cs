@@ -10,6 +10,14 @@ using NUnit.Framework;
 public class MessageBusTests
 {
     [Test]
+    public void CreateMessageBridge_NullHandler_ShouldThrowArgumentNullException()
+    {
+        var messageBus = CreateMessageBus();
+        FluentActions.Invoking(() => messageBus.CreateMessageBridge(null!))
+                     .Should().Throw<ArgumentNullException>();
+    }
+
+    [Test]
     public async Task PublishAsync_AllSubscriptionsDisposedBeforePublish_ShouldNotThrowOrAggregate()
     {
         var messageBus = CreateMessageBus();
