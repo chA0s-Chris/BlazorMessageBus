@@ -12,6 +12,38 @@ using NUnit.Framework;
 public class BlazorMessageBridgeTests
 {
     [Test]
+    [Explicit("Demonstrates ping-pong when configuring bi-directional bridges. Keep unidirectional bridging or implement dedup/cycle prevention.")]
+    public async Task BiDirectional_Cycle_A_and_B_WillPingPong_UntilDisposed()
+    {
+        var busA = CreateMessageBus();
+        var busB = CreateMessageBus();
+
+        var receivedA = 0;
+        var receivedB = 0;
+        busA.Subscribe<String>(_ => receivedA++);
+        busB.Subscribe<String>(_ => receivedB++);
+
+        // A -> B
+        var remoteB = new BridgeRef();
+        var bridgeAtoB = busA.CreateMessageBridge((type, payload, ct) => remoteB.Bridge!.InjectMessageAsync(type, payload, ct));
+        remoteB.Bridge = busB.CreateMessageBridge((_, _, _) => Task.CompletedTask);
+
+        // B -> A
+        var remoteA = new BridgeRef();
+        var bridgeBtoA = busB.CreateMessageBridge((type, payload, ct) => remoteA.Bridge!.InjectMessageAsync(type, payload, ct));
+        remoteA.Bridge = busA.CreateMessageBridge((_, _, _) => Task.CompletedTask);
+
+        await busA.PublishAsync("cycle");
+
+        await Task.Delay(50);
+
+        bridgeAtoB.Dispose();
+        bridgeBtoA.Dispose();
+
+        (receivedA + receivedB).Should().BeGreaterThan(2);
+    }
+
+    [Test]
     public void Bridge_ConfigureFilter_Null_ShouldThrow()
     {
         var bus = CreateMessageBus();
@@ -252,6 +284,17 @@ public class BlazorMessageBridgeTests
     }
 
     [Test]
+    public void ConfigureFilter_AfterDispose_ShouldThrow()
+    {
+        var bus = CreateMessageBus();
+        using var bridge = bus.CreateMessageBridge((_, _, _) => Task.CompletedTask);
+        bridge.Dispose();
+
+        FluentActions.Invoking(() => bridge.ConfigureFilter(BlazorMessageBridgeFilters.All()))
+                     .Should().Throw<ObjectDisposedException>();
+    }
+
+    [Test]
     public async Task CreateMessageBridge_ShouldForwardToRemoteBus_AndNotLoopBack()
     {
         var busA = CreateMessageBus();
@@ -339,6 +382,67 @@ public class BlazorMessageBridgeTests
 
         await Task.Delay(200);
         Volatile.Read(ref countB).Should().Be(baseline, "no messages published after disposal should be forwarded");
+
+        _ = bridgeA;
+    }
+
+    [Test]
+    public async Task FilterPredicate_Throwing_ShouldNotAffectLocalDelivery()
+    {
+        var busA = CreateMessageBus();
+        var busB = CreateMessageBus();
+
+        var receivedLocal = 0;
+        var receivedRemote = 0;
+        busA.Subscribe<String>(_ => receivedLocal++);
+        busB.Subscribe<String>(_ => receivedRemote++);
+
+        var remoteB = new BridgeRef();
+        var bridgeA = busA.CreateMessageBridge((type, payload, ct) => remoteB.Bridge!.InjectMessageAsync(type, payload, ct));
+        remoteB.Bridge = busB.CreateMessageBridge((_, _, _) => Task.CompletedTask);
+
+        bridgeA.ConfigureFilter(BlazorMessageBridgeFilters.Where(_ => throw new InvalidOperationException("boom")));
+
+        await FluentActions.Awaiting(() => busA.PublishAsync("X")).Should().NotThrowAsync();
+
+        receivedLocal.Should().Be(1);
+        await Task.Delay(50);
+        receivedRemote.Should().Be(0);
+
+        _ = bridgeA;
+    }
+
+    [Test]
+    public async Task Forwarding_FireAndForget_PublishReturnsBeforeOutboundCompletes()
+    {
+        var busA = CreateMessageBus();
+        var busB = CreateMessageBus();
+
+        var receivedLocal = 0;
+        var receivedRemote = 0;
+        busA.Subscribe<String>(_ => receivedLocal++);
+        busB.Subscribe<String>(_ => receivedRemote++);
+
+        var tcs = new TaskCompletionSource<Boolean>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var remoteB = new BridgeRef();
+        var bridgeA = busA.CreateMessageBridge(async (type, payload, ct) =>
+        {
+            await tcs.Task;
+            await remoteB.Bridge!.InjectMessageAsync(type, payload, ct);
+        });
+        remoteB.Bridge = busB.CreateMessageBridge((_, _, _) => Task.CompletedTask);
+
+        var publishTask = busA.PublishAsync("fire-and-forget");
+
+        // Publish must complete even though outbound forwarding is blocked
+        await publishTask;
+
+        receivedLocal.Should().Be(1);
+        receivedRemote.Should().Be(0);
+
+        tcs.SetResult(true);
+        (await WaitUntilAsync(() => receivedRemote == 1, TimeSpan.FromSeconds(1))).Should().BeTrue();
 
         _ = bridgeA;
     }
@@ -439,6 +543,33 @@ public class BlazorMessageBridgeTests
         await FluentActions.Awaiting(() => busA.PublishAsync("Hello", cts.Token)).Should().NotThrowAsync();
 
         receivedLocal.Should().Be(1);
+
+        await Task.Delay(50);
+        receivedRemote.Should().Be(0);
+
+        _ = bridgeA;
+    }
+
+    [Test]
+    public async Task StopOnFirstError_True_ShouldNotForward_WhenLocalHandlerThrows()
+    {
+        var options = new BlazorMessageBusOptions
+        {
+            StopOnFirstError = true
+        };
+        var busA = CreateMessageBus(options);
+        var busB = CreateMessageBus();
+
+        var receivedRemote = 0;
+        busB.Subscribe<String>(_ => receivedRemote++);
+
+        var remoteB = new BridgeRef();
+        var bridgeA = busA.CreateMessageBridge((type, payload, ct) => remoteB.Bridge!.InjectMessageAsync(type, payload, ct));
+        remoteB.Bridge = busB.CreateMessageBridge((_, _, _) => Task.CompletedTask);
+
+        busA.Subscribe<String>(_ => throw new InvalidOperationException("local failure"));
+
+        await FluentActions.Awaiting(() => busA.PublishAsync("test")).Should().ThrowAsync<InvalidOperationException>();
 
         await Task.Delay(50);
         receivedRemote.Should().Be(0);
