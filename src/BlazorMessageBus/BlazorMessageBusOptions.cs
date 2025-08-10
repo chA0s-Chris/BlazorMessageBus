@@ -17,4 +17,11 @@ public record BlazorMessageBusOptions
     /// An optional default exception handler for publish errors.
     /// </summary>
     public Func<Exception, Task>? OnPublishException { get; set; }
+
+    /// <summary>
+    /// An optional exception handler for errors occurring during message bridging.
+    /// This is invoked when the bridge filter predicate or the outbound transport handler throws.
+    /// Exceptions thrown by this callback are swallowed.
+    /// </summary>
+    public Func<Exception, Task>? OnBridgeException { get; set; }
 }

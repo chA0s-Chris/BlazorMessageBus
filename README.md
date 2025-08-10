@@ -35,6 +35,7 @@ builder.Services.AddBlazorMessageBus(options =>
 {
     options.StopOnFirstError = false;
     options.OnPublishException = ex => { /* log or handle */ return Task.CompletedTask; };
+    options.OnBridgeException = ex => { /* log bridge errors */ return Task.CompletedTask; };
 });
 ```
 
@@ -77,6 +78,7 @@ For cleanup best practices, see [Disposal and Lifecycle Guidance](#disposal-and-
 
 - `StopOnFirstError` (Boolean): If true, publishing stops on the first handler exception. If false, all handlers are invoked and exceptions are aggregated.
 - `OnPublishException` (Func<Exception, Task>): Optional async handler for exceptions thrown by subscribers.
+- `OnBridgeException` (Func<Exception, Task>): Optional async handler for exceptions thrown during message bridging (e.g., filter predicate or outbound transport handler). Exceptions thrown by this callback are swallowed.
 
 ## Advanced Usage
 
@@ -147,7 +149,7 @@ BlazorMessageBus supports bridging messages across bus instances via `IBlazorMes
 
 - Forwarding model: Forwarding to bridges is fire-and-forget and does not affect `PublishAsync` latency. Remote delivery is eventual and may complete after `PublishAsync` returns.
 - Loop prevention: Each bridge has a unique Id. Inbound injections carry the originating bridge Id so the local bus can skip forwarding back to that same bridge, preventing loops.
-- Error isolation: Exceptions thrown during forwarding are swallowed so local delivery is never affected.
+- Error isolation: Exceptions thrown during forwarding are swallowed so local delivery is never affected. To observe such errors, configure `options.OnBridgeException`.
 - Lifecycle and disposal: Disposing a bridge deactivates it, stops further forwarding, forbids additional injections, and deregisters it from the bus. Disposal is idempotent and never throws.
 - Filtering: Configure filters to control which message types are forwarded using `BlazorMessageBridgeFilters.Include(...)`, `Exclude(...)`, or `Where(...)`. Filters can be reconfigured at runtime and apply to subsequent messages.
 - Cancellation: Cancellation tokens passed to `PublishAsync` are observed only by outbound forwarding (e.g., your transport). Local delivery is not canceled. Similarly, `InjectMessageAsync(..., cancellationToken)` does not cancel local delivery.

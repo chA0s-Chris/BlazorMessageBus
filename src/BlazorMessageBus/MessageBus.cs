@@ -16,6 +16,7 @@ internal class MessageBus : IBlazorMessageBus, IBlazorMessageBridgeTarget
     private readonly IBlazorMessageBridgeInternalFactory _messageBridgeInternalFactory;
     private readonly ConcurrentDictionary<Type, Message> _messages = [];
     private readonly Func<Exception, Task>? _onPublishException;
+    private readonly Func<Exception, Task>? _onBridgeException;
     private readonly Boolean _stopOnFirstError;
 
     /// <summary>
@@ -30,6 +31,7 @@ internal class MessageBus : IBlazorMessageBus, IBlazorMessageBridgeTarget
 
         _stopOnFirstError = messageBusOptions.StopOnFirstError;
         _onPublishException = messageBusOptions.OnPublishException;
+        _onBridgeException = messageBusOptions.OnBridgeException;
     }
 
     private Subscription CreateSubscription(Type type, MessageCallback callback)
@@ -131,7 +133,7 @@ internal class MessageBus : IBlazorMessageBus, IBlazorMessageBridgeTarget
     {
         ArgumentNullException.ThrowIfNull(messageHandler);
 
-        var bridge = _messageBridgeInternalFactory.CreateMessageBridge(this, messageHandler);
+        var bridge = _messageBridgeInternalFactory.CreateMessageBridge(this, messageHandler, _onBridgeException);
         if (!_bridges.TryAdd(bridge.Id, bridge))
         {
             throw new InvalidOperationException($"Message bridge with id '{bridge.Id}' already exists.");

@@ -13,6 +13,7 @@ internal interface IBlazorMessageBridgeInternalFactory
     /// </summary>
     /// <param name="target">The bridge target used for inbound message injection and lifecycle management.</param>
     /// <param name="messageHandler">The asynchronous outbound handler used to forward bridged messages.</param>
+    /// <param name="onBridgeException">Optional callback to invoke when an exception occurs during bridging.</param>
     /// <returns>A new <see cref="IBlazorMessageBridgeInternal"/> implementation.</returns>
-    IBlazorMessageBridgeInternal CreateMessageBridge(IBlazorMessageBridgeTarget target, BridgeMessageHandler messageHandler);
+    IBlazorMessageBridgeInternal CreateMessageBridge(IBlazorMessageBridgeTarget target, BridgeMessageHandler messageHandler, Func<Exception, Task>? onBridgeException);
 }

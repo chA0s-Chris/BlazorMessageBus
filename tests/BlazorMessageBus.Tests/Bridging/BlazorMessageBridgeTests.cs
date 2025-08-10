@@ -287,7 +287,7 @@ public class BlazorMessageBridgeTests
     public void ConfigureFilter_AfterDispose_ShouldThrow()
     {
         var bus = CreateMessageBus();
-        using var bridge = bus.CreateMessageBridge((_, _, _) => Task.CompletedTask);
+        var bridge = bus.CreateMessageBridge((_, _, _) => Task.CompletedTask);
         bridge.Dispose();
 
         FluentActions.Invoking(() => bridge.ConfigureFilter(BlazorMessageBridgeFilters.All()))
@@ -516,6 +516,90 @@ public class BlazorMessageBridgeTests
         (await WaitUntilAsync(() => receivedC >= 2, TimeSpan.FromSeconds(1))).Should().BeTrue("C should receive via A->C and A->B->C");
         receivedB.Should().Be(1);
         receivedA.Should().Be(1);
+    }
+
+    [Test]
+    public async Task OnBridgeException_IsInvoked_WhenFilterPredicateThrows()
+    {
+        var invoked = 0;
+        var options = new BlazorMessageBusOptions
+        {
+            OnBridgeException = _ =>
+            {
+                Interlocked.Increment(ref invoked);
+                return Task.CompletedTask;
+            }
+        };
+
+        var busA = CreateMessageBus(options);
+        var busB = CreateMessageBus();
+
+        var receivedLocal = 0;
+        var receivedRemote = 0;
+        busA.Subscribe<String>(_ => receivedLocal++);
+        busB.Subscribe<String>(_ => receivedRemote++);
+
+        var remoteB = new BridgeRef();
+        var bridgeA = busA.CreateMessageBridge((type, payload, ct) => remoteB.Bridge!.InjectMessageAsync(type, payload, ct));
+        remoteB.Bridge = busB.CreateMessageBridge((_, _, _) => Task.CompletedTask);
+
+        bridgeA.ConfigureFilter(BlazorMessageBridgeFilters.Where(_ => throw new InvalidOperationException("boom")));
+
+        await FluentActions.Awaiting(() => busA.PublishAsync("X")).Should().NotThrowAsync();
+
+        receivedLocal.Should().Be(1);
+        receivedRemote.Should().Be(0);
+        (await WaitUntilAsync(() => Volatile.Read(ref invoked) == 1, TimeSpan.FromSeconds(1))).Should().BeTrue();
+
+        _ = bridgeA;
+    }
+
+    [Test]
+    public async Task OnBridgeException_IsInvoked_WhenOutboundHandlerThrows()
+    {
+        var invoked = 0;
+        var options = new BlazorMessageBusOptions
+        {
+            OnBridgeException = _ =>
+            {
+                Interlocked.Increment(ref invoked);
+                return Task.CompletedTask;
+            }
+        };
+
+        var bus = CreateMessageBus(options);
+        var localCount = 0;
+        bus.Subscribe<String>(_ => localCount++);
+
+        using var bridge = bus.CreateMessageBridge((_, _, _) => throw new InvalidOperationException("Bridge transport failed"));
+
+        await FluentActions.Awaiting(() => bus.PublishAsync("Hello")).Should().NotThrowAsync();
+        localCount.Should().Be(1);
+        (await WaitUntilAsync(() => Volatile.Read(ref invoked) == 1, TimeSpan.FromSeconds(1))).Should().BeTrue();
+    }
+
+    [Test]
+    public async Task OnBridgeException_ThrowingCallback_IsSwallowed()
+    {
+        var invoked = 0;
+        var options = new BlazorMessageBusOptions
+        {
+            OnBridgeException = _ =>
+            {
+                Interlocked.Increment(ref invoked);
+                throw new("observer failed");
+            }
+        };
+
+        var bus = CreateMessageBus(options);
+        var localCount = 0;
+        bus.Subscribe<String>(_ => localCount++);
+
+        using var bridge = bus.CreateMessageBridge((_, _, _) => throw new InvalidOperationException("Bridge transport failed"));
+
+        await FluentActions.Awaiting(() => bus.PublishAsync("Hello")).Should().NotThrowAsync();
+        localCount.Should().Be(1);
+        (await WaitUntilAsync(() => Volatile.Read(ref invoked) == 1, TimeSpan.FromSeconds(1))).Should().BeTrue();
     }
 
     [Test]

@@ -7,10 +7,12 @@ namespace Chaos.BlazorMessageBus.Bridging;
 /// </summary>
 internal class BlazorMessageBridgeInternalFactory : IBlazorMessageBridgeInternalFactory
 {
-    /// <inheritdoc />
-    public IBlazorMessageBridgeInternal CreateMessageBridge(IBlazorMessageBridgeTarget target, BridgeMessageHandler messageHandler)
+    /// <inheritdoc/>
+    public IBlazorMessageBridgeInternal CreateMessageBridge(IBlazorMessageBridgeTarget target,
+                                                            BridgeMessageHandler messageHandler,
+                                                            Func<Exception, Task>? onBridgeException)
     {
-        var bridge = new BlazorMessageBridge(target, messageHandler);
+        var bridge = new BlazorMessageBridge(target, messageHandler, onBridgeException);
         return bridge;
     }
 }

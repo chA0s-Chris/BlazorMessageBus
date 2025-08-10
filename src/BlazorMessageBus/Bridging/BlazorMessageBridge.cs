@@ -12,6 +12,7 @@ using Chaos.BlazorMessageBus.Filtering;
 internal class BlazorMessageBridge : IBlazorMessageBridgeInternal
 {
     private readonly IBlazorMessageBridgeTarget _target;
+    private readonly Func<Exception, Task>? _onBridgeException;
     private Int32 _disposed;
     private volatile BridgeState _state;
 
@@ -20,9 +21,13 @@ internal class BlazorMessageBridge : IBlazorMessageBridgeInternal
     /// </summary>
     /// <param name="target">The message bus target used for inbound injection.</param>
     /// <param name="outboundHandler">The asynchronous handler used to forward outbound messages to a remote transport.</param>
-    public BlazorMessageBridge(IBlazorMessageBridgeTarget target, BridgeMessageHandler outboundHandler)
+    /// <param name="onBridgeException">Optional callback invoked when an exception occurs during bridging.</param>
+    public BlazorMessageBridge(IBlazorMessageBridgeTarget target,
+                               BridgeMessageHandler outboundHandler,
+                               Func<Exception, Task>? onBridgeException)
     {
         _target = target;
+        _onBridgeException = onBridgeException;
         _state = new(true, outboundHandler, BlazorMessageBridgeFilters.All());
     }
 
@@ -116,17 +121,52 @@ internal class BlazorMessageBridge : IBlazorMessageBridgeInternal
             return;
         }
 
-        if (outboundHandler is not null &&
-            filter.ShouldBridge(messageType))
+        if (outboundHandler is not null)
         {
+            Boolean shouldBridge;
             try
             {
-                await outboundHandler.Invoke(messageType, payload, cancellationToken);
+                shouldBridge = filter.ShouldBridge(messageType);
             }
-            catch
+            catch (Exception exception)
+            {
+                // Notify about filter errors and swallow
+                await InvokeBridgeExceptionHandlerAsync(exception).ConfigureAwait(false);
+                return;
+            }
+
+            if (!shouldBridge)
+            {
+                return;
+            }
+
+            try
+            {
+                await outboundHandler.Invoke(messageType, payload, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception)
             {
                 // Bridge errors should not affect local message processing
+                await InvokeBridgeExceptionHandlerAsync(exception).ConfigureAwait(false);
             }
+        }
+    }
+
+    private async Task InvokeBridgeExceptionHandlerAsync(Exception exception)
+    {
+        var handler = _onBridgeException;
+        if (handler is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await handler.Invoke(exception).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Never throw from exception handler
         }
     }
 
