@@ -2,6 +2,7 @@
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
+using Chaos.BlazorMessageBus.Bridging;
 using FluentAssertions;
 using Microsoft.Extensions.Options;
 using NUnit.Framework;
@@ -9,9 +10,17 @@ using NUnit.Framework;
 public class MessageBusTests
 {
     [Test]
+    public void CreateMessageBridge_NullHandler_ShouldThrowArgumentNullException()
+    {
+        var messageBus = CreateMessageBus();
+        FluentActions.Invoking(() => messageBus.CreateMessageBridge(null!))
+                     .Should().Throw<ArgumentNullException>();
+    }
+
+    [Test]
     public async Task PublishAsync_AllSubscriptionsDisposedBeforePublish_ShouldNotThrowOrAggregate()
     {
-        var messageBus = new MessageBus();
+        var messageBus = CreateMessageBus();
         var subscription1 = messageBus.Subscribe<String>(_ => throw new InvalidOperationException());
         var subscription2 = messageBus.Subscribe<String>(_ => throw new FileNotFoundException());
         subscription1.Dispose();
@@ -288,8 +297,9 @@ public class MessageBusTests
 
     private static MessageBus CreateMessageBus(BlazorMessageBusOptions? options = null)
     {
+        var factory = new BlazorMessageBridgeInternalFactory();
         if (options is not null)
-            return new(new OptionsWrapper<BlazorMessageBusOptions>(options));
-        return new();
+            return new(factory, new OptionsWrapper<BlazorMessageBusOptions>(options));
+        return new(factory);
     }
 }

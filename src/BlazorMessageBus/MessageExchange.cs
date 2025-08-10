@@ -16,36 +16,43 @@ internal class MessageExchange : IBlazorMessageExchange
 
     internal List<IBlazorMessageSubscription> Subscriptions { get; } = [];
 
+    /// <inheritdoc />
     public void Subscribe<T>(SubscriptionHandlerAsync<T> handler)
     {
         var subscription = _messageBus.Subscribe(handler);
         Subscriptions.Add(subscription);
     }
 
+    /// <inheritdoc />
     public void Subscribe<T>(SubscriptionHandler<T> handler)
     {
         var subscription = _messageBus.Subscribe(handler);
         Subscriptions.Add(subscription);
     }
 
+    /// <inheritdoc />
     public void Subscribe(Type messageType, SubscriptionHandlerAsync<Object> handler)
     {
         var subscription = _messageBus.Subscribe(messageType, handler);
         Subscriptions.Add(subscription);
     }
 
+    /// <inheritdoc />
     public void Subscribe(Type messageType, SubscriptionHandler<Object> handler)
     {
         var subscription = _messageBus.Subscribe(messageType, handler);
         Subscriptions.Add(subscription);
     }
 
-    public Task PublishAsync<T>(T payload) where T : notnull
-        => _messageBus.PublishAsync(payload);
+    /// <inheritdoc />
+    public Task PublishAsync<T>(T payload, CancellationToken cancellationToken = default) where T : notnull
+        => _messageBus.PublishAsync(payload, cancellationToken);
 
-    public Task PublishAsync(Object payload)
-        => _messageBus.PublishAsync(payload);
+    /// <inheritdoc />
+    public Task PublishAsync(Object payload, CancellationToken cancellationToken = default)
+        => _messageBus.PublishAsync(payload, cancellationToken);
 
+    /// <inheritdoc />
     public void Dispose()
     {
         foreach (var subscription in Subscriptions)

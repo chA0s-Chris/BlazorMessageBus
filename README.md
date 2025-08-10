@@ -35,6 +35,7 @@ builder.Services.AddBlazorMessageBus(options =>
 {
     options.StopOnFirstError = false;
     options.OnPublishException = ex => { /* log or handle */ return Task.CompletedTask; };
+    options.OnBridgeException = ex => { /* log bridge errors */ return Task.CompletedTask; };
 });
 ```
 
@@ -77,6 +78,7 @@ For cleanup best practices, see [Disposal and Lifecycle Guidance](#disposal-and-
 
 - `StopOnFirstError` (Boolean): If true, publishing stops on the first handler exception. If false, all handlers are invoked and exceptions are aggregated.
 - `OnPublishException` (Func<Exception, Task>): Optional async handler for exceptions thrown by subscribers.
+- `OnBridgeException` (Func<Exception, Task>): Optional async handler for exceptions thrown during message bridging (e.g., filter predicate or outbound transport handler). Exceptions thrown by this callback are swallowed.
 
 ## Advanced Usage
 
@@ -140,6 +142,78 @@ subscription.Dispose();
 - Treat disposal as idempotent and safe to call multiple times from a consumer perspective. After disposal, do not expect further callbacks; in-flight callbacks may complete, but new ones should not be scheduled.
 - Avoid blocking in disposal paths. Do not wait on asynchronous work during disposal; release references and let in-flight operations complete naturally.
 - For Blazor components, create the exchange during initialization and keep a field reference; dispose it in the component’s `Dispose()`/`DisposeAsync()` so all managed subscriptions are also cleaned up.
+
+## Message Bridging
+
+BlazorMessageBus supports bridging messages across bus instances via `IBlazorMessageBus.CreateMessageBridge(...)`. A bridge can forward outbound messages to any transport (HTTP, SignalR, etc.) and inject inbound messages into the local bus.
+
+- Forwarding model: Forwarding to bridges is fire-and-forget and does not affect `PublishAsync` latency. Remote delivery is eventual and may complete after `PublishAsync` returns.
+- Loop prevention: Each bridge has a unique Id. Inbound injections carry the originating bridge Id so the local bus can skip forwarding back to that same bridge, preventing loops.
+- Error isolation: Exceptions thrown during forwarding are swallowed so local delivery is never affected. To observe such errors, configure `options.OnBridgeException`.
+- Lifecycle and disposal: Disposing a bridge deactivates it, stops further forwarding, forbids additional injections, and deregisters it from the bus. Disposal is idempotent and never throws.
+- Filtering: Configure filters to control which message types are forwarded using `BlazorMessageBridgeFilters.Include(...)`, `Exclude(...)`, or `Where(...)`. Filters can be reconfigured at runtime and apply to subsequent messages.
+- Cancellation: Cancellation tokens passed to `PublishAsync` are observed only by outbound forwarding (e.g., your transport). Local delivery is not canceled. Similarly, `InjectMessageAsync(..., cancellationToken)` does not cancel local delivery.
+- Topologies and duplicates: When multiple paths exist to a destination (e.g., A→C direct and A→B→C), downstream buses may observe duplicates. Apply filters or deduplication at the edges if needed.
+
+### Bridging Example
+
+This example shows how to forward messages from App A to App B using a custom transport (e.g., SignalR/HTTP). The outbound side sends to your transport; the inbound side injects into the local bus.
+
+```csharp
+// App A (outbound)
+// IBlazorMessageBus busA is resolved from DI
+
+// Create a bridge and wire outbound forwarding to your transport
+var bridgeToB = busA.CreateMessageBridge(async (Type type, Object payload, CancellationToken ct) =>
+{
+    await transportAtoB.SendAsync(type, payload, ct); // implement this (SignalR/HTTP/etc.)
+});
+
+// Optionally filter which types are forwarded
+bridgeToB.ConfigureFilter(BlazorMessageBridgeFilters.Include(typeof(String)));
+
+// App B (inbound)
+// IBlazorMessageBus busB is resolved from DI
+
+// Create a local bridge instance to own the inbound injection identity (prevents loops)
+var inboundBridge = busB.CreateMessageBridge((_, _, _) => Task.CompletedTask);
+
+// When your transport receives a message from App A, inject it into App B
+transportAtoB.OnReceived(async (Type type, Object payload, CancellationToken ct) =>
+{
+    await inboundBridge.InjectMessageAsync(type, payload, ct);
+});
+
+// Subscriptions on App B receive injected messages
+busB.Subscribe<String>(msg => Console.WriteLine($"App B received: {msg}"));
+
+// Publish on App A: delivered locally and forwarded to App B
+await busA.PublishAsync("Hello from A");
+
+// Cleanup when done
+bridgeToB.Dispose();
+inboundBridge.Dispose();
+```
+
+### Monitoring Bridging Errors
+
+To observe forwarding failures without impacting local delivery, configure `OnBridgeException`:
+
+```csharp
+// Program.cs
+builder.Services.AddBlazorMessageBus(options =>
+{
+    options.OnBridgeException = ex =>
+    {
+        // Replace with your logging/telemetry of choice
+        Console.Error.WriteLine($"[BridgeError] {ex}");
+        return Task.CompletedTask;
+    };
+});
+```
+
+The callback is invoked when the bridge filter predicate or the outbound transport handler throws. 
+Exceptions thrown by the callback itself are swallowed to avoid cascading failures.
 
 ## License
 

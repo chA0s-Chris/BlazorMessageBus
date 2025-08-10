@@ -2,6 +2,7 @@
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
+using Chaos.BlazorMessageBus.Bridging;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -11,9 +12,6 @@ public class BlazorMessageBusServiceCollectionExtensionsTests
 {
     private IServiceCollection _services;
 
-    [SetUp]
-    public void Setup() => _services = new ServiceCollection();
-
     [Test]
     public void AddBlazorMessageBus_ShouldRegisterServices()
     {
@@ -21,6 +19,7 @@ public class BlazorMessageBusServiceCollectionExtensionsTests
 
         var serviceProvider = _services.BuildServiceProvider();
 
+        serviceProvider.GetService<IBlazorMessageBridgeInternalFactory>().Should().NotBeNull();
         serviceProvider.GetService<IBlazorMessageBus>().Should().NotBeNull();
         serviceProvider.GetService<IBlazorMessageExchange>().Should().NotBeNull();
     }
@@ -40,4 +39,7 @@ public class BlazorMessageBusServiceCollectionExtensionsTests
         options.Value.StopOnFirstError.Should().BeTrue();
         options.Value.OnPublishException.Should().NotBeNull();
     }
+
+    [SetUp]
+    public void Setup() => _services = new ServiceCollection();
 }

@@ -2,6 +2,7 @@
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
+using Chaos.BlazorMessageBus.Bridging;
 using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
@@ -23,6 +24,7 @@ public static class BlazorMessageBusServiceCollectionExtensions
             services.Configure(configure);
         }
 
+        services.AddScoped<IBlazorMessageBridgeInternalFactory, BlazorMessageBridgeInternalFactory>();
         services.AddScoped<IBlazorMessageBus, MessageBus>();
         services.AddTransient<IBlazorMessageExchange, MessageExchange>();
         return services;

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2025 Christian Flessa. All rights reserved.
+// Copyright (c) 2025 Christian Flessa. All rights reserved.
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
@@ -11,24 +11,57 @@ public class MessageExchangeTests
     private Mock<IBlazorMessageBus> _messageBusMock;
     private MessageExchange _messageExchange;
 
-    [SetUp]
-    public void Setup()
+    [Test]
+    public void Dispose_CalledMultipleTimes_ShouldNotThrow()
     {
-        _messageBusMock = new(MockBehavior.Strict);
-        _messageExchange = new(_messageBusMock.Object);
+        var subscriptionMock = new Mock<IBlazorMessageSubscription>();
+        _messageExchange.Subscriptions.Add(subscriptionMock.Object);
+
+        FluentActions.Invoking(() =>
+        {
+            _messageExchange.Dispose();
+            _messageExchange.Dispose();
+        }).Should().NotThrow();
     }
 
-    [TearDown]
-    public void Teardown() => _messageExchange.Dispose();
+    [Test]
+    public void Dispose_ShouldDisposeAllSubscriptions()
+    {
+        var subscriptionMock1 = new Mock<IBlazorMessageSubscription>();
+        var subscriptionMock2 = new Mock<IBlazorMessageSubscription>();
+
+        _messageExchange.Subscriptions.Add(subscriptionMock1.Object);
+        _messageExchange.Subscriptions.Add(subscriptionMock2.Object);
+
+        _messageExchange.Dispose();
+
+        subscriptionMock1.Verify(s => s.Dispose(), Times.Once);
+        subscriptionMock2.Verify(s => s.Dispose(), Times.Once);
+
+        _messageExchange.Subscriptions.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Dispose_WithNoSubscriptions_ShouldNotThrow()
+    {
+        FluentActions.Invoking(() => _messageExchange.Dispose()).Should().NotThrow();
+    }
 
     [Test]
     public async Task PublishAsync_WithNonNullPayload_ShouldCallMessageBusPublishAsync()
     {
         var payload = "TestPayload";
-        _messageBusMock.Setup(m => m.PublishAsync(payload)).Returns(Task.CompletedTask);
+        _messageBusMock.Setup(m => m.PublishAsync(payload, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         await _messageExchange.PublishAsync(payload);
         _messageBusMock.VerifyAll();
+    }
+
+    [SetUp]
+    public void Setup()
+    {
+        _messageBusMock = new(MockBehavior.Strict);
+        _messageExchange = new(_messageBusMock.Object);
     }
 
     [Test]
@@ -65,22 +98,6 @@ public class MessageExchangeTests
         _messageBusMock.VerifyAll();
     }
 
-    [Test]
-    public void Dispose_ShouldDisposeAllSubscriptions()
-    {
-        var subscription1 = new Mock<IBlazorMessageSubscription>();
-        var subscription2 = new Mock<IBlazorMessageSubscription>();
-
-        _messageExchange.Subscriptions.Add(subscription1.Object);
-        _messageExchange.Subscriptions.Add(subscription2.Object);
-
-        subscription1.Setup(s => s.Dispose());
-        subscription2.Setup(s => s.Dispose());
-
-        _messageExchange.Dispose();
-
-        subscription1.VerifyAll();
-        subscription2.VerifyAll();
-        _messageExchange.Subscriptions.Should().BeEmpty();
-    }
+    [TearDown]
+    public void Teardown() => _messageExchange.Dispose();
 }
