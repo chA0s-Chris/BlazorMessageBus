@@ -44,7 +44,7 @@ internal class MessageBus : IBlazorMessageBus, IBlazorMessageBridgeTarget
                                    .Where(bridge => bridge.IsActive && (skipBridgeId is null || bridge.Id != skipBridgeId))
                                    .Select(bridge => bridge.ForwardMessageAsync(messageType, payload, cancellationToken));
 
-        await Task.WhenAll(forwardTasks);
+        await Task.WhenAll(forwardTasks).ConfigureAwait(false);
     }
 
     private Message GetOrCreateMessage(Type type)
@@ -65,7 +65,8 @@ internal class MessageBus : IBlazorMessageBus, IBlazorMessageBridgeTarget
 
         if (!_bridges.IsEmpty)
         {
-            await ForwardMessageToBridges(payloadType, payload, skipBridgeId, cancellationToken);
+            // Do not await bridge forwarding
+            _ = ForwardMessageToBridges(payloadType, payload, skipBridgeId, cancellationToken);
         }
     }
 
