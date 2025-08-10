@@ -15,8 +15,9 @@ public interface IBlazorMessagePublisher
     /// </remarks>
     /// <typeparam name="T">The type of the message payload.</typeparam>
     /// <param name="payload">The message payload to publish.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>A task that represents the asynchronous publish operation.</returns>
-    Task PublishAsync<T>(T payload) where T : notnull;
+    Task PublishAsync<T>(T payload, CancellationToken cancellationToken = default) where T : notnull;
 
     /// <summary>
     /// Publishes a message to all subscribers of the runtime type of the provided payload.
@@ -25,6 +26,7 @@ public interface IBlazorMessagePublisher
     /// If there are no subscribers for the payload's runtime type, this method does nothing.
     /// </remarks>
     /// <param name="payload">The message payload to publish.</param>
+    /// <param name="cancellationToken">Cancellation token for the operation.</param>
     /// <returns>A task that represents the asynchronous publish operation.</returns>
-    Task PublishAsync(Object payload);
+    Task PublishAsync(Object payload, CancellationToken cancellationToken = default);
 }

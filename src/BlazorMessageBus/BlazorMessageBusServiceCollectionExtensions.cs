@@ -24,8 +24,8 @@ public static class BlazorMessageBusServiceCollectionExtensions
             services.Configure(configure);
         }
 
+        services.AddScoped<IBlazorMessageBridgeInternalFactory, BlazorMessageBridgeInternalFactory>();
         services.AddScoped<IBlazorMessageBus, MessageBus>();
-        services.AddScoped<IBridgeableMessageBus, BridgeableMessageBus>();
         services.AddTransient<IBlazorMessageExchange, MessageExchange>();
         return services;
     }

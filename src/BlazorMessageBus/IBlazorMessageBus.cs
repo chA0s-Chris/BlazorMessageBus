@@ -2,10 +2,12 @@
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
+using Chaos.BlazorMessageBus.Bridging;
+
 /// <summary>
 /// Represents the main message bus for publishing and subscribing to messages.
 /// </summary>
-public interface IBlazorMessageBus : IBlazorMessagePublisher
+public interface IBlazorMessageBus : IBlazorMessagePublisher, IBlazorMessageBridgeHost
 {
     /// <summary>
     /// Subscribes an asynchronous handler to messages of type <typeparamref name="T"/>.

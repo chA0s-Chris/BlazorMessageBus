@@ -5,57 +5,51 @@ namespace Chaos.BlazorMessageBus.Bridging;
 using Chaos.BlazorMessageBus.Filtering;
 
 /// <summary>
-/// Provides message bridging functionality to relay messages between different message bus instances across process boundaries.
+/// Core implementation of a message bridge that can forward outbound messages to a custom transport
+/// and inject inbound messages into the local <see cref="IBlazorMessageBus"/>.
+/// The bridge is thread-safe, supports message type filtering, and isolates forwarding errors from local delivery.
 /// </summary>
-internal class BlazorMessageBridge : IBlazorMessageBridge
+internal class BlazorMessageBridge : IBlazorMessageBridgeInternal
 {
-    private readonly BridgeableMessageBus _messageBus;
+    private readonly IBlazorMessageBridgeTarget _target;
     private Int32 _disposed;
     private volatile BridgeState _state;
 
-    public BlazorMessageBridge(BridgeableMessageBus messageBus)
-    {
-        _messageBus = messageBus ?? throw new ArgumentNullException(nameof(messageBus));
-        _state = new(false, null, BlazorMessageBridgeFilters.All());
-    }
-
-    public Boolean IsActive => _state.IsActive && _disposed == 0;
-
     /// <summary>
-    /// Internal method called by the message bus to forward outbound messages to the bridge.
+    /// Initializes a new instance of the <see cref="BlazorMessageBridge"/> class.
     /// </summary>
-    /// <param name="messageType">The type of the message being published.</param>
-    /// <param name="payload">The message payload.</param>
-    /// <param name="cancellationToken">Cancellation token for the operation.</param>
-    /// <returns>A task representing the asynchronous bridge operation.</returns>
-    internal async Task ForwardMessageAsync(Type messageType, Object payload, CancellationToken cancellationToken = default)
+    /// <param name="target">The message bus target used for inbound injection.</param>
+    /// <param name="outboundHandler">The asynchronous handler used to forward outbound messages to a remote transport.</param>
+    public BlazorMessageBridge(IBlazorMessageBridgeTarget target, BridgeMessageHandler outboundHandler)
     {
-        if (_disposed != 0)
-        {
-            return;
-        }
-
-        var (isActive, handler, filter) = _state;
-        if (!isActive)
-        {
-            return;
-        }
-
-        if (handler != null && filter.ShouldBridge(messageType))
-        {
-            try
-            {
-                await handler(messageType, payload, cancellationToken);
-            }
-            catch
-            {
-                // Bridge errors should not affect local message processing
-            }
-        }
+        _target = target;
+        _state = new(true, outboundHandler, BlazorMessageBridgeFilters.All());
     }
+
+#if NET9_0_OR_GREATER
+    /// <summary>
+    /// Gets the unique identifier for this bridge instance.
+    /// </summary>
+    public Guid Id { get; } = Guid.CreateVersion7();
+#else
+    /// <summary>
+    /// Gets the unique identifier for this bridge instance.
+    /// </summary>
+    public Guid Id { get; } = Guid.NewGuid();
+#endif
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed != 0, this);
 
+    /// <summary>
+    /// Gets a value indicating whether the bridge is active and not disposed.
+    /// When inactive or disposed, messages will not be forwarded.
+    /// </summary>
+    public Boolean IsActive => _state.IsActive && _disposed == 0;
+
+    /// <summary>
+    /// Configures the message type filter that determines which messages are forwarded.
+    /// </summary>
+    /// <param name="filter">The filter to apply. Must not be null.</param>
     public void ConfigureFilter(IBlazorMessageBridgeFilter filter)
     {
         ArgumentNullException.ThrowIfNull(filter);
@@ -72,81 +66,76 @@ internal class BlazorMessageBridge : IBlazorMessageBridge
         } while (!ReferenceEquals(Interlocked.CompareExchange(ref _state, newState, currentState), currentState));
     }
 
+    /// <summary>
+    /// Injects an inbound message of type <typeparamref name="T"/> into the local bus.
+    /// </summary>
+    /// <typeparam name="T">The message payload type.</typeparam>
+    /// <param name="payload">The message payload to inject.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the task to complete.</param>
+    /// <returns>A task representing the asynchronous injection operation.</returns>
     public Task InjectMessageAsync<T>(T payload, CancellationToken cancellationToken = default) where T : notnull
     {
-        ArgumentNullException.ThrowIfNull(payload);
         ThrowIfDisposed();
-
-        // Use the internal method to prevent infinite bridge forwarding loops
-        return _messageBus.PublishWithoutBridgeForwardingAsync(payload);
+        ArgumentNullException.ThrowIfNull(payload);
+        return _target.InjectMessageAsync(payload, Id, cancellationToken);
     }
 
+    /// <summary>
+    /// Injects an inbound message using the runtime <see cref="Type"/> of the payload.
+    /// </summary>
+    /// <param name="messageType">The runtime type of the payload.</param>
+    /// <param name="payload">The message payload to inject.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the task to complete.</param>
+    /// <returns>A task representing the asynchronous injection operation.</returns>
     public Task InjectMessageAsync(Type messageType, Object payload, CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(messageType);
         ArgumentNullException.ThrowIfNull(payload);
-        ThrowIfDisposed();
+        return _target.InjectMessageAsync(messageType, payload, Id, cancellationToken);
+    }
 
-        // Use reflection to call the generic PublishWithoutBridgeForwardingAsync method at runtime
-        var publishMethod = typeof(BridgeableMessageBus).GetMethod(nameof(BridgeableMessageBus.PublishWithoutBridgeForwardingAsync),
-                                                                   System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        if (publishMethod is null)
+    /// <summary>
+    /// Forwards a locally published message to the remote side if the bridge is active and the filter allows it.
+    /// Forwarding exceptions are swallowed to ensure local message processing is unaffected.
+    /// </summary>
+    /// <param name="messageType">The type of the message being forwarded.</param>
+    /// <param name="payload">The message payload.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the task to complete.</param>
+    /// <returns>A task that represents the asynchronous forwarding operation.</returns>
+    public async Task ForwardMessageAsync(Type messageType, Object payload, CancellationToken cancellationToken = default)
+    {
+        if (_disposed != 0)
         {
-            throw new InvalidOperationException("PublishWithoutBridgeForwardingAsync method not found on BridgeableMessageBus");
+            return;
         }
 
-        var genericPublishMethod = publishMethod.MakeGenericMethod(messageType);
-        var task = (Task)genericPublishMethod.Invoke(_messageBus, [payload])!;
-        return task;
-    }
-
-    public Task StartAsync(BridgeMessageHandler outboundHandler, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(outboundHandler);
-        ThrowIfDisposed();
-
-        BridgeState currentState, newState;
-        do
+        var (isActive, outboundHandler, filter) = _state;
+        if (!isActive)
         {
-            currentState = _state;
-            if (currentState.IsActive)
-            {
-                throw new InvalidOperationException("Message bridge is already active.");
-            }
+            return;
+        }
 
-            newState = currentState with
-            {
-                IsActive = true,
-                OutboundHandler = outboundHandler
-            };
-        } while (!ReferenceEquals(Interlocked.CompareExchange(ref _state, newState, currentState), currentState));
-
-        return Task.CompletedTask;
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken = default)
-    {
-        ThrowIfDisposed();
-
-        BridgeState currentState, newState;
-        do
+        if (outboundHandler is not null &&
+            filter.ShouldBridge(messageType))
         {
-            currentState = _state;
-            if (!currentState.IsActive)
+            try
             {
-                return Task.CompletedTask;
+                await outboundHandler.Invoke(messageType, payload, cancellationToken);
             }
-
-            newState = currentState with
+            catch
             {
-                IsActive = false,
-                OutboundHandler = null
-            };
-        } while (!ReferenceEquals(Interlocked.CompareExchange(ref _state, newState, currentState), currentState));
-
-        return Task.CompletedTask;
+                // Bridge errors should not affect local message processing
+            }
+        }
     }
 
+    private sealed record BridgeState(Boolean IsActive, BridgeMessageHandler? OutboundHandler, IBlazorMessageBridgeFilter Filter);
+
+    /// <summary>
+    /// Disposes the bridge, making it inactive and deregistering it from the message bus target.
+    /// Subsequent calls are no-ops. Disposal never throws.
+    /// </summary>
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
@@ -158,10 +147,20 @@ internal class BlazorMessageBridge : IBlazorMessageBridge
         do
         {
             currentState = _state;
-            newState = new(false, null, currentState.Filter);
+            newState = currentState with
+            {
+                IsActive = false,
+                OutboundHandler = null
+            };
         } while (!ReferenceEquals(Interlocked.CompareExchange(ref _state, newState, currentState), currentState));
-    }
 
-    // Immutable state record for atomic updates
-    private sealed record BridgeState(Boolean IsActive, BridgeMessageHandler? OutboundHandler, IBlazorMessageBridgeFilter Filter);
+        try
+        {
+            _target.DestroyMessageBridge(this);
+        }
+        catch
+        {
+            // Bridge disposal must not throw
+        }
+    }
 }

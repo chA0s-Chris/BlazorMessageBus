@@ -2,6 +2,7 @@
 // This file is licensed under the MIT license. See LICENSE in the project root for more information.
 namespace Chaos.BlazorMessageBus;
 
+using Chaos.BlazorMessageBus.Bridging;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.Runtime.ExceptionServices;
@@ -9,14 +10,22 @@ using System.Runtime.ExceptionServices;
 /// <summary>
 /// Represents the main implementation of the message bus for publishing and subscribing to messages.
 /// </summary>
-internal class MessageBus : IBlazorMessageBus
+internal class MessageBus : IBlazorMessageBus, IBlazorMessageBridgeTarget
 {
+    private readonly ConcurrentDictionary<Guid, IBlazorMessageBridgeInternal> _bridges = [];
+    private readonly IBlazorMessageBridgeInternalFactory _messageBridgeInternalFactory;
     private readonly ConcurrentDictionary<Type, Message> _messages = [];
     private readonly Func<Exception, Task>? _onPublishException;
     private readonly Boolean _stopOnFirstError;
 
-    public MessageBus(IOptions<BlazorMessageBusOptions>? options = null)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MessageBus"/> class.
+    /// </summary>
+    /// <param name="messageBridgeInternalFactory">The internal bridge factory used to create message bridges.</param>
+    /// <param name="options">Optional message bus options.</param>
+    public MessageBus(IBlazorMessageBridgeInternalFactory messageBridgeInternalFactory, IOptions<BlazorMessageBusOptions>? options = null)
     {
+        _messageBridgeInternalFactory = messageBridgeInternalFactory;
         var messageBusOptions = options?.Value ?? new BlazorMessageBusOptions();
 
         _stopOnFirstError = messageBusOptions.StopOnFirstError;
@@ -29,10 +38,19 @@ internal class MessageBus : IBlazorMessageBus
         return message.Subscriptions.CreateSubscription(callback);
     }
 
+    private async Task ForwardMessageToBridges(Type messageType, Object payload, Guid? skipBridgeId = null, CancellationToken cancellationToken = default)
+    {
+        var forwardTasks = _bridges.Values
+                                   .Where(bridge => bridge.IsActive && (skipBridgeId is null || bridge.Id != skipBridgeId))
+                                   .Select(bridge => bridge.ForwardMessageAsync(messageType, payload, cancellationToken));
+
+        await Task.WhenAll(forwardTasks);
+    }
+
     private Message GetOrCreateMessage(Type type)
         => _messages.GetOrAdd(type, t => new(t));
 
-    private async Task InternalPublishAsync(Type payloadType, Object payload)
+    private async Task InternalPublishAsync(Type payloadType, Object payload, Guid? skipBridgeId = null, CancellationToken cancellationToken = default)
     {
         var message = GetOrCreateMessage(payloadType);
 
@@ -43,6 +61,11 @@ internal class MessageBus : IBlazorMessageBus
         else
         {
             await InvokeSubscriptionsAsync(message.Subscriptions, payload).ConfigureAwait(false);
+        }
+
+        if (!_bridges.IsEmpty)
+        {
+            await ForwardMessageToBridges(payloadType, payload, skipBridgeId, cancellationToken);
         }
     }
 
@@ -102,18 +125,58 @@ internal class MessageBus : IBlazorMessageBus
         }
     }
 
+    /// <inheritdoc />
+    public IBlazorMessageBridge CreateMessageBridge(BridgeMessageHandler messageHandler)
+    {
+        ArgumentNullException.ThrowIfNull(messageHandler);
+
+        var bridge = _messageBridgeInternalFactory.CreateMessageBridge(this, messageHandler);
+        if (!_bridges.TryAdd(bridge.Id, bridge))
+        {
+            throw new InvalidOperationException($"Message bridge with id '{bridge.Id}' already exists.");
+        }
+
+        return bridge;
+    }
+
+    /// <inheritdoc />
+    public void DestroyMessageBridge(IBlazorMessageBridge messageBridge)
+    {
+        ArgumentNullException.ThrowIfNull(messageBridge);
+
+        _bridges.TryRemove(messageBridge.Id, out _);
+    }
+
+    /// <inheritdoc />
+    public Task InjectMessageAsync<T>(T payload, Guid bridgeId, CancellationToken cancellationToken = default) where T : notnull
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+        return InjectMessageAsync(typeof(T), payload, bridgeId, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task InjectMessageAsync(Type messageType, Object payload, Guid bridgeId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(messageType);
+        ArgumentNullException.ThrowIfNull(payload);
+        return InternalPublishAsync(messageType, payload, bridgeId, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public IBlazorMessageSubscription Subscribe<T>(SubscriptionHandlerAsync<T> handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
         return CreateSubscription(typeof(T), new MessageCallbackAsync<T>(handler));
     }
 
+    /// <inheritdoc />
     public IBlazorMessageSubscription Subscribe<T>(SubscriptionHandler<T> handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
         return CreateSubscription(typeof(T), new MessageCallback<T>(handler));
     }
 
+    /// <inheritdoc />
     public IBlazorMessageSubscription Subscribe(Type messageType, SubscriptionHandlerAsync<Object> handler)
     {
         ArgumentNullException.ThrowIfNull(messageType);
@@ -121,6 +184,7 @@ internal class MessageBus : IBlazorMessageBus
         return CreateSubscription(messageType, new MessageCallbackAsyncObject(handler, messageType));
     }
 
+    /// <inheritdoc />
     public IBlazorMessageSubscription Subscribe(Type messageType, SubscriptionHandler<Object> handler)
     {
         ArgumentNullException.ThrowIfNull(messageType);
@@ -128,15 +192,17 @@ internal class MessageBus : IBlazorMessageBus
         return CreateSubscription(messageType, new MessageCallbackObject(handler, messageType));
     }
 
-    public Task PublishAsync<T>(T payload) where T : notnull
+    /// <inheritdoc />
+    public Task PublishAsync<T>(T payload, CancellationToken cancellationToken = default) where T : notnull
     {
         ArgumentNullException.ThrowIfNull(payload);
-        return InternalPublishAsync(typeof(T), payload);
+        return InternalPublishAsync(typeof(T), payload, cancellationToken: cancellationToken);
     }
 
-    public Task PublishAsync(Object payload)
+    /// <inheritdoc />
+    public Task PublishAsync(Object payload, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(payload);
-        return InternalPublishAsync(payload.GetType(), payload);
+        return InternalPublishAsync(payload.GetType(), payload, cancellationToken: cancellationToken);
     }
 }
