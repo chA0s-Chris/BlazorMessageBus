@@ -12,12 +12,7 @@ using Nuke.Common.Utilities;
 using Nuke.Common.Utilities.Collections;
 using Nuke.Components;
 using Serilog;
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 
 internal class Build : NukeBuild,
@@ -56,7 +51,6 @@ internal class Build : NukeBuild,
     public Configure<DotNetNuGetPushSettings> PushSettings => settings =>
         settings.EnableSkipDuplicate();
 
-    public IEnumerable<Project> TestProjects => GetTestProjects().ToList();
 
     public Configure<DotNetTestSettings> TestSettings => settings =>
         settings.EnableNoBuild()
@@ -83,7 +77,7 @@ internal class Build : NukeBuild,
                   }
                   catch (Exception e)
                   {
-                      Log.Error(e, "Failed to read coverage summary.");
+                      Log.Error(e, "Failed to read coverage summary");
                   }
 
                   ReportSummary(config => config.AddPair("Coverage", coverage));
@@ -113,7 +107,7 @@ internal class Build : NukeBuild,
 
     private static AbsolutePath TestsDirectory => RootDirectory / "tests";
 
-    private String AssemblyVersion { get; set; }
+    private String AssemblyVersion { get; set; } = null!;
 
     private Target Clean => target =>
         target.Before<IRestore>()
@@ -128,9 +122,12 @@ internal class Build : NukeBuild,
 
     private AbsolutePath CoverageSummary => From<IReportCoverage>().CoverageReportDirectory / "Summary.json";
 
-    private String ReleaseNotes { get; set; }
+    private String ReleaseNotes { get; set; } = null!;
 
-    private String SemanticVersion { get; set; }
+    private String SemanticVersion { get; set; } = null!;
+
+    IEnumerable<Project> ITest.TestProjects =>
+        Partition.GetCurrent(From<IHazSolution>().Solution.GetAllProjects("*.Tests"));
 
     Boolean IReportCoverage.CreateCoverageHtmlReport => true;
 
@@ -152,33 +149,10 @@ internal class Build : NukeBuild,
         }
     }
 
-    private static Project CreateProject(AbsolutePath projectFile)
-    {
-        // Nuke currently does not support SLNX solution files and the Project class has no public constructor,
-        // so we use reflection to fake projects until Nuke supports SLNX.
-        var type = typeof(Project);
-        var constructor = type.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance).First();
-        var name = Path.GetFileNameWithoutExtension(projectFile);
-
-        var project = (Project)constructor.Invoke(
-        [
-            new Solution(),
-            Guid.NewGuid(),
-            name,
-            () => projectFile.ToString(),
-            Guid.NewGuid(),
-            new Dictionary<String, String>()
-        ]);
-
-        return project;
-    }
-
     private static String EscapeStringForMsBuild(String text)
-        => String.Concat(text.Select(c => EscapeCharacters.TryGetValue(c, out var replacement) ? replacement : c.ToString()));
-
-    private static IEnumerable<Project> GetTestProjects()
-        => TestsDirectory.GlobFiles("**/*.Tests.csproj")
-                         .Select(CreateProject);
+        => String.Concat(text.Select(c => EscapeCharacters.TryGetValue(c, out var replacement)
+                                         ? replacement
+                                         : c.ToString()));
 
     private T From<T>() where T : INukeBuild => (T)(Object)this;
 }
