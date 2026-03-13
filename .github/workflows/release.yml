@@ -45,7 +45,7 @@ jobs:
 
       - name: Draft PR-level release notes
         id: drafter
-        uses: release-drafter/release-drafter@v6
+        uses: release-drafter/release-drafter@v7
         with:
           config-name: release-drafter.yml
           tag: v${{ github.event.inputs.version }}
