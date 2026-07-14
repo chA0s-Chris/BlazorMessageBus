@@ -4,7 +4,45 @@
     "config:recommended"
   ],
   "addLabels": [
-    "renovate",
-    "skip-changelog"
+    "renovate"
+  ],
+  "packageRules": [
+    {
+      "description": "Restore old NuGet update behavior for bare versions",
+      "matchManagers": [
+        "nuget"
+      ],
+      "rangeStrategy": "bump"
+    },
+    {
+      "description": "Allow FluentAssertions updates within v7 only",
+      "matchPackageNames": [
+        "FluentAssertions"
+      ],
+      "allowedVersions": "<8"
+    },
+    {
+      "groupName": "Test SDK/MTP",
+      "matchPackageNames": [
+        "Microsoft.NET.Test.Sdk",
+        "Microsoft.TestPlatform.TestHost",
+        "Microsoft.Testing.Platform",
+        "Microsoft.Testing.Extensions.CodeCoverage"
+      ]
+    },
+    {
+      "groupName": "NUnit",
+      "matchPackageNames": [
+        "NUnit",
+        "NUnit.Analyzers",
+        "NUnit3TestAdapter"
+      ]
+    },
+    {
+      "groupName": "GitHub Actions",
+      "matchManagers": [
+        "github-actions"
+      ]
+    }
   ]
 }
